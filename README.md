@@ -1,32 +1,27 @@
-# GMVBC Media Manager — Starter Build
+# GMVBC Media Operations v0.1
 
-## What this version includes
-- Dashboard
-- Church events and media coverage tracking
-- Sunday service information
-- Morning media breakdown
-- Editable order of service
-- Media request queue
-- Request status tracking
-- Printable service packet
-- Browser localStorage saving
-- JSON export/import backup
+Firebase-ready church media operations prototype.
 
-## How to open it
-Double-click `index.html`.
+## Setup
 
-## GitHub Pages
-Upload `index.html` to a GitHub repository, then enable GitHub Pages from the repository settings.
+1. In Firebase, open **Project Overview** and click the Web app icon (`</>`).
+2. Register an app named `GMVBC Media Operations`; do not enable Firebase Hosting.
+3. Copy the `firebaseConfig` values into `js/firebase-config.js`.
+4. Enable **Authentication → Sign-in method → Email/Password**.
+5. In **Firestore Database → Rules**, paste the contents of `firestore.rules` and publish.
+6. Upload this folder to GitHub and enable GitHub Pages.
 
-## Important limitation
-This starter stores information only in the browser being used. It is not yet a shared multi-user system.
+Without Firebase configuration, use **Preview in Demo Mode**.
 
-## Recommended next phase
-1. Add volunteer/team assignments
-2. Add recurring weekly services
-3. Add incident and post-service reports
-4. Add equipment tracker integration
-5. Add file/link attachments
-6. Create a public Wix media request form
-7. Connect the app to a shared cloud database
-8. Add user sign-in and permissions
+## Version 0.1 includes
+
+- Email/password login and account creation
+- Operations Center dashboard
+- Sunday service planner
+- Announcements
+- Events
+- Media requests
+- Responsive phone/tablet/desktop layout
+- Demo Mode
+
+These starter rules allow every authenticated user to edit. Role-based permissions and account approval come next.
