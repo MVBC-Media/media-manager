@@ -1,27 +1,25 @@
-# GMVBC Media Operations v0.1
+# Mount Vernon Control Center v0.2
 
-Firebase-ready church media operations prototype.
+This build adds the royal-blue/gold HRAC-inspired layout and these production modules:
 
-## Setup
+- Dashboard with Sunday readiness score
+- Services and Sunday run list
+- Robust calendar and upcoming 30-day events
+- Announcements with graphic status
+- Choir coordination
+- Special events
+- Equipment inventory and alerts
+- Admin media-team profiles
+- Settings
 
-1. In Firebase, open **Project Overview** and click the Web app icon (`</>`).
-2. Register an app named `GMVBC Media Operations`; do not enable Firebase Hosting.
-3. Copy the `firebaseConfig` values into `js/firebase-config.js`.
-4. Enable **Authentication → Sign-in method → Email/Password**.
-5. In **Firestore Database → Rules**, paste the contents of `firestore.rules` and publish.
-6. Upload this folder to GitHub and enable GitHub Pages.
+## Update GitHub
 
-Without Firebase configuration, use **Preview in Demo Mode**.
+Upload and replace the current repository files with the contents of this folder. Keep the folder structure intact. After committing, wait for GitHub Pages to redeploy and press **Ctrl + Shift + R**.
 
-## Version 0.1 includes
+## Logo
 
-- Email/password login and account creation
-- Operations Center dashboard
-- Sunday service planner
-- Announcements
-- Events
-- Media requests
-- Responsive phone/tablet/desktop layout
-- Demo Mode
+The transparent church logo is included at `assets/church-logo.png`. The current interface uses an MV badge while we decide whether the full horizontal logo or a compact logo mark works best in the narrow sidebar.
 
-These starter rules allow every authenticated user to edit. Role-based permissions and account approval come next.
+## Testing note
+
+The current Firestore rules allow any signed-in user to edit. This is suitable for the testing phase only. Role-based permissions should be added before the whole team is invited.
