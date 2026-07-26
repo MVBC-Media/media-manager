@@ -1,6 +1,10 @@
-# Mount Vernon Control Center v0.6
+# Mount Vernon Control Center v0.6.1
 
-## Major update: Reports Center
+## Layout refinement
+
+The Start Date and End Date controls in Reports are now stacked vertically so they fit cleanly in the sidebar without crowding or overlapping.
+
+## Reports Center
 
 Version 0.6 adds a dedicated Reports page with:
 
