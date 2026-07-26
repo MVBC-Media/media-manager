@@ -307,6 +307,7 @@ function renderAll() {
   renderProfiles();
   renderCalendars();
   renderSettings();
+  updateReportFilterOptions();
 }
 
 function renderServices() {
@@ -1127,5 +1128,464 @@ $("todayLabel").textContent = new Date().toLocaleDateString(undefined, {
   month: "long",
   day: "numeric"
 });
+
+
+const reportDefinitions = {
+  weeklyProduction: {
+    title: "Weekly Production Packet",
+    dateField: "Date",
+    filterLabel: "Service",
+    getRows() {
+      return sortedServices().map((service) => ({
+        "Date": service.serviceDate || "",
+        "Service": service.serviceName || "Sunday Service",
+        "Call Time": service.callTime ? formatTime(service.callTime) : "",
+        "Start Time": service.startTime ? formatTime(service.startTime) : "",
+        "Sermon": service.sermonTitle || "",
+        "Scripture": service.scripture || "",
+        "Speaker": service.speaker || "",
+        "Choir": service.choirName || "",
+        "Graphics": service.graphicsReady ? "Ready" : "Pending",
+        "Slides": service.slidesReady ? "Ready" : "Pending",
+        "Audio": service.audioReady ? "Ready" : "Pending",
+        "Livestream": service.streamReady ? "Ready" : "Pending",
+        "Cameras": service.camerasReady ? "Ready" : "Pending",
+        "Notes": service.serviceNotes || ""
+      }));
+    }
+  },
+  serviceHistory: {
+    title: "Service History",
+    dateField: "Date",
+    filterLabel: "Speaker",
+    getRows() {
+      return sortedServices().map((service) => ({
+        "Date": service.serviceDate || "",
+        "Service": service.serviceName || "",
+        "Speaker": service.speaker || "",
+        "Sermon": service.sermonTitle || "",
+        "Scripture": service.scripture || "",
+        "Call Time": service.callTime ? formatTime(service.callTime) : "",
+        "Start Time": service.startTime ? formatTime(service.startTime) : "",
+        "Choir": service.choirName || "",
+        "Production Notes": service.serviceNotes || ""
+      }));
+    }
+  },
+  upcomingEvents: {
+    title: "Upcoming Events",
+    dateField: "Date",
+    filterLabel: "Location",
+    getRows() {
+      const today = new Date();
+      return [...state.events]
+        .filter((event) => !event.date || new Date(`${event.date}T23:59:59`) >= today)
+        .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"))
+        .map((event) => ({
+          "Date": event.date || "",
+          "Time": event.time ? formatTime(event.time) : "",
+          "Event": event.title || "",
+          "Location": event.location || "",
+          "Media Coverage": event.coverage || ""
+        }));
+    }
+  },
+  eventHistory: {
+    title: "Event Production History",
+    dateField: "Date",
+    filterLabel: "Location",
+    getRows() {
+      return [...state.events]
+        .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
+        .map((event) => ({
+          "Date": event.date || "",
+          "Time": event.time ? formatTime(event.time) : "",
+          "Event": event.title || "",
+          "Location": event.location || "",
+          "Media Coverage": event.coverage || ""
+        }));
+    }
+  },
+  announcementLog: {
+    title: "Announcement & Graphics Log",
+    dateField: "Display Start",
+    filterLabel: "Graphic Status",
+    getRows() {
+      return [...state.announcements].map((item) => ({
+        "Announcement": item.title || "",
+        "Message": item.message || "",
+        "Priority": item.priority || "",
+        "Graphic Status": item.graphicStatus || "",
+        "Display Start": item.displayStart || "",
+        "Display End": item.displayEnd || "",
+        "Graphic Stored": item.graphicData || item.graphicUrl ? "Yes" : "No",
+        "Graphic Link": item.graphicUrl || ""
+      }));
+    }
+  },
+  songHistory: {
+    title: "Song History",
+    dateField: "Service Date",
+    filterLabel: "Choir / Singer",
+    getRows() {
+      return [...state.songs]
+        .sort((a, b) => (a.serviceDate || "").localeCompare(b.serviceDate || ""))
+        .map((song) => ({
+          "Service Date": song.serviceDate || "",
+          "Song": song.title || "",
+          "Artist / Composer": song.artist || "",
+          "Place in Service": song.servicePosition || "",
+          "Choir / Singer": song.choir || "",
+          "Key": song.key || "",
+          "Notes": song.notes || ""
+        }));
+    }
+  },
+  copyrightReport: {
+    title: "Copyright License Report",
+    dateField: "Renewal Date",
+    filterLabel: "Status",
+    getRows() {
+      return [...state.licenses].map((license) => ({
+        "Provider": license.provider || "",
+        "License Type": license.licenseType || "",
+        "License Number": license.licenseNumber || "",
+        "Status": license.status || "",
+        "Renewal Date": license.renewalDate || "",
+        "Coverage Notes": license.notes || ""
+      }));
+    }
+  },
+  equipmentInventory: {
+    title: "Equipment Inventory",
+    dateField: null,
+    filterLabel: "Category",
+    getRows() {
+      return [...state.equipment].map((item) => ({
+        "Equipment": item.name || "",
+        "Category": item.category || "",
+        "Status": item.status || "",
+        "Condition": item.condition || "",
+        "Location": item.location || "",
+        "Serial Number": item.serialNumber || "",
+        "Notes": item.notes || ""
+      }));
+    }
+  },
+  rentalHistory: {
+    title: "Equipment Rental History",
+    dateField: "Checkout Date",
+    filterLabel: "Status",
+    getRows() {
+      return [...state.rentals]
+        .sort((a, b) => (b.checkoutDate || "").localeCompare(a.checkoutDate || ""))
+        .map((rental) => ({
+          "Equipment": rental.equipmentName || "",
+          "Borrower": rental.borrower || "",
+          "Contact": rental.contact || "",
+          "Checkout Date": rental.checkoutDate || "",
+          "Due Date": rental.dueDate || "",
+          "Returned Date": rental.returnedDate || "",
+          "Status": rentalStatus(rental),
+          "Notes": rental.notes || ""
+        }));
+    }
+  },
+  equipmentAlerts: {
+    title: "Equipment Maintenance & Alerts",
+    dateField: null,
+    filterLabel: "Status",
+    getRows() {
+      return [...state.equipment]
+        .filter((item) => item.status !== "Ready" || item.condition === "Attention")
+        .map((item) => ({
+          "Equipment": item.name || "",
+          "Category": item.category || "",
+          "Status": item.status || "",
+          "Condition": item.condition || "",
+          "Location": item.location || "",
+          "Serial Number": item.serialNumber || "",
+          "Maintenance Notes": item.notes || ""
+        }));
+    }
+  },
+  teamDirectory: {
+    title: "Media Team Directory",
+    dateField: null,
+    filterLabel: "Status",
+    getRows() {
+      return [...state.profiles].map((profile) => ({
+        "Name": profile.name || "",
+        "Role": profile.role || "",
+        "Email": profile.email || "",
+        "Phone": profile.phone || "",
+        "Status": profile.active || "Active",
+        "Skills": profile.skills || ""
+      }));
+    }
+  },
+  skillsMatrix: {
+    title: "Volunteer Skills Matrix",
+    dateField: null,
+    filterLabel: "Role",
+    getRows() {
+      const standardSkills = ["Audio", "Camera", "Graphics", "Lighting", "Streaming", "Slides", "Photography"];
+      return [...state.profiles].map((profile) => {
+        const skillText = (profile.skills || "").toLowerCase();
+        const row = {
+          "Name": profile.name || "",
+          "Role": profile.role || "",
+          "Status": profile.active || "Active"
+        };
+        standardSkills.forEach((skill) => {
+          row[skill] = skillText.includes(skill.toLowerCase()) ? "Yes" : "";
+        });
+        row["Other Skills"] = profile.skills || "";
+        return row;
+      });
+    }
+  },
+  annualSummary: {
+    title: "Annual Ministry Summary",
+    dateField: "Date",
+    filterLabel: "Category",
+    getRows() {
+      const year = $("reportStartDate").value
+        ? new Date(`${$("reportStartDate").value}T12:00:00`).getFullYear()
+        : new Date().getFullYear();
+
+      const inYear = (value) => value && new Date(`${value}T12:00:00`).getFullYear() === year;
+
+      return [
+        { "Date": `${year}-01-01`, "Category": "Services", "Total": state.services.filter((item) => inYear(item.serviceDate)).length, "Notes": "Saved worship-service listings" },
+        { "Date": `${year}-01-01`, "Category": "Events", "Total": state.events.filter((item) => inYear(item.date)).length, "Notes": "Special events and productions" },
+        { "Date": `${year}-01-01`, "Category": "Announcements", "Total": state.announcements.filter((item) => inYear(item.displayStart) || inYear((item.createdAt || "").slice(0, 10))).length, "Notes": "Announcement records" },
+        { "Date": `${year}-01-01`, "Category": "Graphics", "Total": state.announcements.filter((item) => (item.graphicData || item.graphicUrl) && (inYear(item.displayStart) || inYear((item.createdAt || "").slice(0, 10)))).length, "Notes": "Announcements with stored graphics" },
+        { "Date": `${year}-01-01`, "Category": "Songs", "Total": state.songs.filter((item) => inYear(item.serviceDate)).length, "Notes": "Song-use records" },
+        { "Date": `${year}-01-01`, "Category": "Equipment Rentals", "Total": state.rentals.filter((item) => inYear(item.checkoutDate)).length, "Notes": "Checkout and rental records" },
+        { "Date": `${year}-01-01`, "Category": "Equipment Inventory", "Total": state.equipment.length, "Notes": "Current inventory records" },
+        { "Date": `${year}-01-01`, "Category": "Media Team Profiles", "Total": state.profiles.length, "Notes": "Current team profiles" }
+      ];
+    }
+  }
+};
+
+let currentReport = { title: "", rows: [], columns: [] };
+
+function updateReportFilterOptions() {
+  const definition = reportDefinitions[$("reportType")?.value || "weeklyProduction"];
+  const filter = $("reportFilter");
+  if (!definition || !filter) return;
+
+  const rows = definition.getRows();
+  const field = definition.filterLabel;
+  const values = [...new Set(rows.map((row) => row[field]).filter(Boolean))].sort();
+
+  const existing = filter.value;
+  filter.innerHTML = `<option value="">All records</option>` +
+    values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+
+  if (values.includes(existing)) filter.value = existing;
+}
+
+function dateInsideRange(value, start, end) {
+  if (!value) return true;
+  if (start && value < start) return false;
+  if (end && value > end) return false;
+  return true;
+}
+
+function buildSelectedReport() {
+  const key = $("reportType").value;
+  const definition = reportDefinitions[key];
+  let rows = definition.getRows();
+
+  const start = $("reportStartDate").value;
+  const end = $("reportEndDate").value;
+  const filter = $("reportFilter").value;
+
+  if (definition.dateField && (start || end)) {
+    rows = rows.filter((row) => dateInsideRange(row[definition.dateField], start, end));
+  }
+
+  if (filter && definition.filterLabel) {
+    rows = rows.filter((row) => String(row[definition.filterLabel] || "") === filter);
+  }
+
+  const columns = rows.length
+    ? Object.keys(rows[0])
+    : Object.keys(definition.getRows()[0] || { "No Records": "" });
+
+  currentReport = { key, title: definition.title, rows, columns };
+  return currentReport;
+}
+
+function reportSummary(report) {
+  const total = report.rows.length;
+  const dated = report.rows.filter((row) => Object.values(row).some((value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value)))).length;
+  const ready = report.rows.filter((row) => Object.values(row).some((value) => String(value).toLowerCase() === "ready")).length;
+  const overdue = report.rows.filter((row) => Object.values(row).some((value) => String(value).toLowerCase() === "overdue")).length;
+
+  return [
+    ["Records", total],
+    ["Dated Records", dated],
+    ["Ready", ready],
+    ["Overdue", overdue]
+  ];
+}
+
+function previewReport() {
+  const report = buildSelectedReport();
+
+  $("reportPreviewTitle").textContent = report.title;
+  $("reportRowCount").textContent = `${report.rows.length} ${report.rows.length === 1 ? "record" : "records"}`;
+  $("reportSummaryCards").innerHTML = reportSummary(report).map(([label, value]) => `
+    <div class="report-summary-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
+  `).join("");
+
+  if (!report.rows.length) {
+    $("reportPreview").innerHTML = `<div class="empty-state">No records match the selected report and filters.</div>`;
+    return;
+  }
+
+  $("reportPreview").innerHTML = `
+    <table class="report-table">
+      <thead><tr>${report.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr></thead>
+      <tbody>
+        ${report.rows.map((row) => `<tr>${report.columns.map((column) => `<td>${escapeHtml(row[column] ?? "")}</td>`).join("")}</tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+function safeFileName(value) {
+  return value.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
+}
+
+function exportReportExcel() {
+  const report = buildSelectedReport();
+
+  if (!report.rows.length) {
+    showToast("There are no records to export.");
+    return;
+  }
+
+  if (!window.XLSX) {
+    showToast("Excel export library did not load.");
+    return;
+  }
+
+  const worksheet = XLSX.utils.json_to_sheet(report.rows, { header: report.columns });
+  worksheet["!cols"] = report.columns.map((column) => ({
+    wch: Math.min(45, Math.max(column.length + 2, ...report.rows.map((row) => String(row[column] ?? "").length + 2)))
+  }));
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+
+  const summaryRows = [
+    ["Report", report.title],
+    ["Generated", new Date().toLocaleString()],
+    ["Start Date", $("reportStartDate").value || "All"],
+    ["End Date", $("reportEndDate").value || "All"],
+    ["Filter", $("reportFilter").value || "All"],
+    ["Record Count", report.rows.length]
+  ];
+
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
+  summarySheet["!cols"] = [{ wch: 18 }, { wch: 45 }];
+  XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+
+  XLSX.writeFile(workbook, `${safeFileName(report.title)}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  showToast("Excel report exported.");
+}
+
+function exportReportPdf() {
+  const report = buildSelectedReport();
+
+  if (!report.rows.length) {
+    showToast("There are no records to export.");
+    return;
+  }
+
+  if (!window.jspdf?.jsPDF) {
+    showToast("PDF export library did not load.");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const landscape = report.columns.length > 6;
+  const doc = new jsPDF({
+    orientation: landscape ? "landscape" : "portrait",
+    unit: "pt",
+    format: "letter"
+  });
+
+  doc.setFillColor(18, 63, 130);
+  doc.rect(0, 0, doc.internal.pageSize.getWidth(), 72, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.text(state.settings.churchName || "Mount Vernon Baptist Church", 40, 30);
+  doc.setFontSize(12);
+  doc.text(report.title, 40, 52);
+
+  doc.setTextColor(55, 65, 81);
+  doc.setFontSize(9);
+  doc.text(`Generated ${new Date().toLocaleString()} · ${report.rows.length} records`, 40, 90);
+
+  const body = report.rows.map((row) => report.columns.map((column) => String(row[column] ?? "")));
+
+  doc.autoTable({
+    startY: 105,
+    head: [report.columns],
+    body,
+    theme: "grid",
+    styles: {
+      fontSize: landscape ? 6.5 : 7.5,
+      cellPadding: 3,
+      overflow: "linebreak",
+      valign: "top"
+    },
+    headStyles: {
+      fillColor: [18, 63, 130],
+      textColor: [255, 255, 255],
+      fontStyle: "bold"
+    },
+    alternateRowStyles: { fillColor: [245, 248, 252] },
+    margin: { left: 32, right: 32 },
+    didDrawPage(data) {
+      const pageCount = doc.internal.getNumberOfPages();
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text(
+        `Page ${pageCount}`,
+        doc.internal.pageSize.getWidth() - 65,
+        doc.internal.pageSize.getHeight() - 18
+      );
+    }
+  });
+
+  doc.save(`${safeFileName(report.title)}-${new Date().toISOString().slice(0, 10)}.pdf`);
+  showToast("PDF report exported.");
+}
+
+function printCurrentReport() {
+  previewReport();
+  setTimeout(() => window.print(), 100);
+}
+
+$("reportType").addEventListener("change", () => {
+  updateReportFilterOptions();
+  previewReport();
+});
+
+$("reportStartDate").addEventListener("change", previewReport);
+$("reportEndDate").addEventListener("change", previewReport);
+$("reportFilter").addEventListener("change", previewReport);
+$("previewReportButton").addEventListener("click", previewReport);
+$("exportPdfButton").addEventListener("click", exportReportPdf);
+$("exportExcelButton").addEventListener("click", exportReportExcel);
+$("printReportButton").addEventListener("click", printCurrentReport);
+
 
 initFirebase();

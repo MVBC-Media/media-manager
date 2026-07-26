@@ -1,47 +1,64 @@
-# Mount Vernon Control Center v0.5
+# Mount Vernon Control Center v0.6
 
-## Major update
+## Major update: Reports Center
 
-Version 0.5 adds editing throughout the application.
+Version 0.6 adds a dedicated Reports page with:
 
-Editable records:
+- Live report preview
+- Optional start and end dates
+- Report-specific filters
+- PDF export
+- Excel workbook export
+- Print-friendly output
+- Record counts and summary cards
 
-- Service listings
-- Calendar/event entries
-- Announcements and screen graphics
-- Choir songs
-- Copyright-license records
-- Equipment
-- Equipment rentals
-- Admin/media-team profiles
+## Included reports
 
-## Equipment rentals
+### Production
+- Weekly Production Packet
+- Service History
+- Annual Ministry Summary
 
-The Equipment section now includes:
+### Calendar and Events
+- Upcoming Events
+- Event Production History
 
-- Equipment selection
-- Borrower or organization
-- Checkout date
-- Due date
-- Contact information
-- Rental notes
-- Checked Out, Reserved, and Returned statuses
-- A one-click **Mark Returned** button
-- Active-rental and overdue counts
-- Overdue rental alerts on the dashboard
+### Announcements and Music
+- Announcement & Graphics Log
+- Song History
+- Copyright License Report
 
-## Service listings
+### Equipment
+- Equipment Inventory
+- Equipment Rental History
+- Equipment Maintenance & Alerts
 
-Services now save as individual Firestore records rather than one permanent `current` document.
+### Team
+- Media Team Directory
+- Volunteer Skills Matrix
 
-You can:
+## Excel workbooks
 
-- Start a new service
-- Save it
-- Reopen it for editing
-- Update it
-- Delete it
-- See services and events together on the calendar
+Each Excel export contains:
+
+1. A **Report** worksheet with the selected records
+2. A **Summary** worksheet with:
+   - Report name
+   - Export date
+   - Date range
+   - Applied filter
+   - Record count
+
+## PDF reports
+
+PDF reports include:
+
+- Church name
+- Report title
+- Generated date
+- Record count
+- Page numbers
+- Automatically selected portrait or landscape orientation
 
 ## Installation
 
@@ -56,17 +73,24 @@ Replace the current GitHub repository files with the contents of this package:
 
 Commit the replacement, wait for GitHub Pages to deploy, and press `Ctrl + Shift + R`.
 
+## Internet requirement
+
+PDF and Excel exports use trusted browser libraries loaded from jsDelivr:
+
+- SheetJS
+- jsPDF
+- jsPDF AutoTable
+
+The app must have internet access when it first loads these libraries.
+
 ## Testing checklist
 
-1. Edit and save one record in every section.
-2. Refresh the page and confirm the edits remain.
-3. Create a new equipment rental.
-4. Edit the rental.
-5. Mark it returned.
-6. Create and edit two different service listings.
-7. Confirm both appear on the calendar.
-8. Test Cancel, X, Escape, and clicking outside each modal.
-
-## Existing v0.4 service data
-
-Version 0.4 used a single document at `services/current`. Version 0.5 uses individual documents in the `services` collection. The old `current` record may appear as one service listing if it contains service fields. It can be edited or deleted from the Services page.
+1. Open Reports from the sidebar.
+2. Preview every report type.
+3. Apply a date range.
+4. Apply a filter.
+5. Export one PDF.
+6. Export one Excel workbook.
+7. Open both files and verify the records.
+8. Print a report.
+9. Confirm reports update after editing or adding records.

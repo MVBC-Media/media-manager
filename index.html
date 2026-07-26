@@ -67,6 +67,7 @@
         <button class="nav-link" data-view="events">✦ <span>Events</span></button>
         <button class="nav-link" data-view="equipment">▣ <span>Equipment</span></button>
         <button class="nav-link" data-view="admin">♙ <span>Admin</span></button>
+        <button class="nav-link" data-view="reports">▥ <span>Reports</span></button>
         <button class="nav-link" data-view="settings">⚙ <span>Settings</span></button>
       </nav>
 
@@ -324,6 +325,88 @@
         <div id="profilesList" class="profile-grid"></div>
       </section>
 
+
+      <section id="reportsView" class="view">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">PDF + EXCEL EXPORTS</span>
+            <h1>Reports Center</h1>
+            <p>Choose a report, set an optional date range, preview the results, and export a polished PDF or Excel workbook.</p>
+          </div>
+        </div>
+
+        <div class="reports-layout">
+          <aside class="panel report-controls">
+            <label>
+              Report
+              <select id="reportType">
+                <optgroup label="Production">
+                  <option value="weeklyProduction">Weekly Production Packet</option>
+                  <option value="serviceHistory">Service History</option>
+                  <option value="annualSummary">Annual Ministry Summary</option>
+                </optgroup>
+                <optgroup label="Calendar + Events">
+                  <option value="upcomingEvents">Upcoming Events</option>
+                  <option value="eventHistory">Event Production History</option>
+                </optgroup>
+                <optgroup label="Announcements + Music">
+                  <option value="announcementLog">Announcement & Graphics Log</option>
+                  <option value="songHistory">Song History</option>
+                  <option value="copyrightReport">Copyright License Report</option>
+                </optgroup>
+                <optgroup label="Equipment">
+                  <option value="equipmentInventory">Equipment Inventory</option>
+                  <option value="rentalHistory">Equipment Rental History</option>
+                  <option value="equipmentAlerts">Equipment Maintenance & Alerts</option>
+                </optgroup>
+                <optgroup label="Team">
+                  <option value="teamDirectory">Media Team Directory</option>
+                  <option value="skillsMatrix">Volunteer Skills Matrix</option>
+                </optgroup>
+              </select>
+            </label>
+
+            <div class="report-date-grid">
+              <label>Start date<input id="reportStartDate" type="date"></label>
+              <label>End date<input id="reportEndDate" type="date"></label>
+            </div>
+
+            <label>
+              Filter
+              <select id="reportFilter">
+                <option value="">All records</option>
+              </select>
+            </label>
+
+            <div class="report-buttons">
+              <button class="btn secondary" id="previewReportButton" type="button">Preview Report</button>
+              <button class="btn primary" id="exportPdfButton" type="button">Export PDF</button>
+              <button class="btn primary" id="exportExcelButton" type="button">Export Excel</button>
+              <button class="btn secondary" id="printReportButton" type="button">Print</button>
+            </div>
+
+            <div class="report-tip">
+              <strong>Tip</strong>
+              <span>Leave the date fields blank to include all saved records.</span>
+            </div>
+          </aside>
+
+          <section class="panel report-preview-panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">LIVE PREVIEW</span>
+                <h3 id="reportPreviewTitle">Weekly Production Packet</h3>
+              </div>
+              <span id="reportRowCount" class="pill">0 records</span>
+            </div>
+            <div id="reportSummaryCards" class="report-summary-cards"></div>
+            <div id="reportPreview" class="report-preview">
+              <div class="empty-state">Choose Preview Report to generate the table.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
       <section id="settingsView" class="view">
         <div class="section-head">
           <div><span class="eyebrow">APPLICATION</span><h1>Settings</h1><p>Church information and defaults.</p></div>
@@ -338,8 +421,8 @@
           </article>
           <article class="panel">
             <h3>Version</h3>
-            <p><strong>Mount Vernon Control Center v0.5</strong></p>
-            <p class="muted">Editable records across the app, service history, and equipment rentals.</p>
+            <p><strong>Mount Vernon Control Center v0.6</strong></p>
+            <p class="muted">Editable records, equipment rentals, and a full PDF/Excel Reports Center.</p>
           </article>
         </div>
       </section>
@@ -361,6 +444,9 @@
     </form>
   </dialog>
 
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
