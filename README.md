@@ -1,25 +1,14 @@
-# Mount Vernon Control Center v0.2
+# Mount Vernon Control Center v0.3
 
-This build adds the royal-blue/gold HRAC-inspired layout and these production modules:
+Changes:
+- Fixed Cancel, X, Escape, and backdrop close behavior.
+- Only the main title/name field is required; all supporting fields are optional.
+- Added an Announcements > Screen Graphics gallery.
+- Added compressed graphic thumbnail uploads and optional graphic URLs.
+- Added display start/end dates and graphic workflow status.
+- Added songs being sung, service placement, service date, choir/singer, key, and notes.
+- Added copyright provider, license type/number, status, renewal date, and coverage notes.
 
-- Dashboard with Sunday readiness score
-- Services and Sunday run list
-- Robust calendar and upcoming 30-day events
-- Announcements with graphic status
-- Choir coordination
-- Special events
-- Equipment inventory and alerts
-- Admin media-team profiles
-- Settings
+Upload the replacement files to the existing GitHub repository, commit, wait for Pages to deploy, then press Ctrl + Shift + R.
 
-## Update GitHub
-
-Upload and replace the current repository files with the contents of this folder. Keep the folder structure intact. After committing, wait for GitHub Pages to redeploy and press **Ctrl + Shift + R**.
-
-## Logo
-
-The transparent church logo is included at `assets/church-logo.png`. The current interface uses an MV badge while we decide whether the full horizontal logo or a compact logo mark works best in the narrow sidebar.
-
-## Testing note
-
-The current Firestore rules allow any signed-in user to edit. This is suitable for the testing phase only. Role-based permissions should be added before the whole team is invited.
+Uploaded graphics are compressed thumbnails for production reference. Keep full-resolution originals in Canva, Google Drive, or the church archive.
