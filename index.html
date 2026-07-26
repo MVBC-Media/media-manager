@@ -65,6 +65,7 @@
         <button class="nav-link" data-view="announcements">◉ <span>Announcements</span></button>
         <button class="nav-link" data-view="choir">♪ <span>Choir</span></button>
         <button class="nav-link" data-view="events">✦ <span>Events</span></button>
+        <button class="nav-link" data-view="documents">▧ <span>Documents</span></button>
         <button class="nav-link" data-view="equipment">▣ <span>Equipment</span></button>
         <button class="nav-link" data-view="admin">♙ <span>Admin</span></button>
         <button class="nav-link" data-view="reports">▥ <span>Reports</span></button>
@@ -290,30 +291,42 @@
         <div id="eventsList" class="cards-list"></div>
       </section>
 
+      <section id="documentsView" class="view">
+        <div class="section-head">
+          <div><span class="eyebrow">DOCUMENT LIBRARY</span><h1>Documents</h1><p>Organize ministry files, forms, licenses, policies, instructions, and production references.</p></div>
+          <button class="btn primary" type="button" data-open-modal="document">+ Add Document</button>
+        </div>
+        <div class="stat-grid">
+          <article class="panel"><span class="eyebrow">DOCUMENTS</span><strong id="documentCount">0</strong><small>library records</small></article>
+          <article class="panel"><span class="eyebrow">CATEGORIES</span><strong id="documentCategoryCount">0</strong><small>active categories</small></article>
+          <article class="panel"><span class="eyebrow">FILES STORED</span><strong id="storedDocumentCount">0</strong><small>uploaded into the app</small></article>
+        </div>
+        <article class="panel document-toolbar">
+          <label>Category<select id="documentCategoryFilter"><option value="">All categories</option></select></label>
+          <label>Search<input id="documentSearch" type="search" placeholder="Search title, description, owner, or category"></label>
+          <label>Status<select id="documentStatusFilter"><option value="">All statuses</option><option value="Active">Active</option><option value="Draft">Draft</option><option value="Archived">Archived</option><option value="Expired">Expired</option></select></label>
+        </article>
+        <div id="documentsList" class="document-grid top-gap"></div>
+      </section>
+
       <section id="equipmentView" class="view">
         <div class="section-head">
-          <div><span class="eyebrow">INVENTORY + RENTALS</span><h1>Equipment</h1><p>Manage equipment records, checkouts, rentals, returns, and due dates.</p></div>
-          <div class="button-row">
-            <button class="btn secondary" type="button" data-open-modal="rental">+ New Rental</button>
-            <button class="btn primary" type="button" data-open-modal="equipment">+ Add Equipment</button>
-          </div>
+          <div><span class="eyebrow">INVENTORY + RENTALS + MAINTENANCE</span><h1>Equipment</h1><p>Manage inventory, checkouts, repairs, preventive maintenance, and service history.</p></div>
+          <div class="button-row"><button class="btn secondary" type="button" data-open-modal="maintenance">+ Maintenance Record</button><button class="btn secondary" type="button" data-open-modal="rental">+ New Rental</button><button class="btn primary" type="button" data-open-modal="equipment">+ Add Equipment</button></div>
         </div>
-
-        <div class="stat-grid">
+        <div class="equipment-stat-grid">
           <article class="panel"><span class="eyebrow">INVENTORY</span><strong id="equipmentCount">0</strong><small>equipment records</small></article>
           <article class="panel"><span class="eyebrow">OUT NOW</span><strong id="activeRentalCount">0</strong><small>active rentals</small></article>
-          <article class="panel"><span class="eyebrow">OVERDUE</span><strong id="overdueRentalCount">0</strong><small>past due</small></article>
+          <article class="panel"><span class="eyebrow">OVERDUE</span><strong id="overdueRentalCount">0</strong><small>past-due rentals</small></article>
+          <article class="panel"><span class="eyebrow">OPEN MAINTENANCE</span><strong id="openMaintenanceCount">0</strong><small>active service records</small></article>
+          <article class="panel"><span class="eyebrow">MAINTENANCE DUE</span><strong id="dueMaintenanceCount">0</strong><small>due or overdue</small></article>
         </div>
-
-        <div class="two-column equipment-columns">
-          <article class="panel">
-            <div class="panel-head"><div><span class="eyebrow">INVENTORY</span><h3>Equipment List</h3></div></div>
-            <div id="equipmentList" class="cards-list"></div>
-          </article>
-          <article class="panel">
-            <div class="panel-head"><div><span class="eyebrow">CHECKOUTS</span><h3>Equipment Rentals</h3></div></div>
-            <div id="rentalsList" class="cards-list"></div>
-          </article>
+        <div class="subnav equipment-subnav"><button class="subnav-button active" type="button" data-equipment-subview="equipmentInventoryPanel">Inventory</button><button class="subnav-button" type="button" data-equipment-subview="equipmentRentalsPanel">Rentals</button><button class="subnav-button" type="button" data-equipment-subview="equipmentMaintenancePanel">Maintenance</button></div>
+        <div id="equipmentInventoryPanel" class="equipment-subview active"><div id="equipmentList" class="cards-list"></div></div>
+        <div id="equipmentRentalsPanel" class="equipment-subview"><div id="rentalsList" class="cards-list"></div></div>
+        <div id="equipmentMaintenancePanel" class="equipment-subview">
+          <div class="panel maintenance-filter-bar"><label>Status<select id="maintenanceStatusFilter"><option value="">All statuses</option><option value="Reported">Reported</option><option value="Scheduled">Scheduled</option><option value="In Progress">In Progress</option><option value="Waiting on Parts">Waiting on Parts</option><option value="Completed">Completed</option></select></label><label>Equipment<select id="maintenanceEquipmentFilter"><option value="">All equipment</option></select></label></div>
+          <div id="maintenanceList" class="cards-list top-gap"></div>
         </div>
       </section>
 
@@ -354,9 +367,11 @@
                   <option value="songHistory">Song History</option>
                   <option value="copyrightReport">Copyright License Report</option>
                 </optgroup>
+                <optgroup label="Documents"><option value="documentIndex">Document Library Index</option></optgroup>
                 <optgroup label="Equipment">
                   <option value="equipmentInventory">Equipment Inventory</option>
                   <option value="rentalHistory">Equipment Rental History</option>
+                  <option value="maintenanceHistory">Equipment Maintenance History</option>
                   <option value="equipmentAlerts">Equipment Maintenance & Alerts</option>
                 </optgroup>
                 <optgroup label="Team">
@@ -421,8 +436,8 @@
           </article>
           <article class="panel">
             <h3>Version</h3>
-            <p><strong>Mount Vernon Control Center v0.6.1</strong></p>
-            <p class="muted">Editable records, equipment rentals, and a refined PDF/Excel Reports Center.</p>
+            <p><strong>Mount Vernon Control Center v0.7</strong></p>
+            <p class="muted">Editable records, document management, equipment maintenance, rentals, and reporting.</p>
           </article>
         </div>
       </section>

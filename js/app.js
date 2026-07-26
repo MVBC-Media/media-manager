@@ -13,8 +13,10 @@ const state = {
   events: [],
   songs: [],
   licenses: [],
+  documents: [],
   equipment: [],
   rentals: [],
+  maintenance: [],
   profiles: [],
   settings: {},
   monthCursor: new Date(),
@@ -75,6 +77,7 @@ const demoSeed = {
     status: "Researching",
     notes: "Streaming coverage under review."
   }],
+  documents: [{id:"demo-document",title:"Media Ministry Sunday Checklist",category:"Policies & Procedures",description:"Reference checklist for Sunday morning setup.",status:"Active",owner:"Media Ministry",documentDate:new Date().toISOString().slice(0,10),fileName:"",fileType:"",fileSize:0,externalUrl:""}],
   equipment: [{
     id: "demo-camera",
     name: "Camera 1",
@@ -100,6 +103,7 @@ const demoSeed = {
     status: "Checked Out",
     notes: "Special event coverage."
   }],
+  maintenance: [{id:"demo-maintenance",equipmentId:"demo-mic",equipmentName:"Wireless Microphone 3",maintenanceType:"Repair",issue:"Intermittent static during use.",reportedDate:new Date().toISOString().slice(0,10),dueDate:new Date(Date.now()+5*86400000).toISOString().slice(0,10),status:"Reported",priority:"High",vendor:"",cost:"",notes:"Test cable and battery contacts."}],
   profiles: [{
     id: "demo-profile",
     name: "Shayla Kelly",
@@ -115,8 +119,10 @@ const collectionMap = {
   event: "events",
   song: "songs",
   license: "licenses",
+  document: "documents",
   equipment: "equipment",
   rental: "rentals",
+  maintenance: "maintenance",
   profile: "profiles"
 };
 
@@ -126,8 +132,10 @@ const stateMap = {
   event: "events",
   song: "songs",
   license: "licenses",
+  document: "documents",
   equipment: "equipment",
   rental: "rentals",
+  maintenance: "maintenance",
   profile: "profiles"
 };
 
@@ -209,8 +217,10 @@ function saveDemo() {
     events: state.events,
     songs: state.songs,
     licenses: state.licenses,
+    documents: state.documents,
     equipment: state.equipment,
     rentals: state.rentals,
+    maintenance: state.maintenance,
     profiles: state.profiles,
     settings: state.settings
   }));
@@ -220,11 +230,13 @@ function startFirestoreListeners() {
   const collections = [
     ["services", "services"],
     ["announcements", "announcements"],
+    ["documents", "documents"],
     ["events", "events"],
     ["songs", "songs"],
     ["licenses", "licenses"],
     ["equipment", "equipment"],
     ["rentals", "rentals"],
+    ["maintenance", "maintenance"],
     ["profiles", "profiles"]
   ];
 
@@ -302,6 +314,7 @@ function renderAll() {
   renderServices();
   renderAnnouncements();
   renderEvents();
+  renderDocuments();
   renderMusic();
   renderEquipment();
   renderProfiles();
@@ -493,6 +506,11 @@ function renderEvents() {
   `).join("") || `<div class="empty-state">No upcoming events.</div>`;
 }
 
+
+function documentTypeLabel(item){if(item.fileType){return (item.fileType.split("/").pop()||"FILE").slice(0,5).toUpperCase()}if(item.externalUrl)return"LINK";return"DOC"}
+function formatFileSize(bytes){const v=Number(bytes||0);if(!v)return"";if(v<1024)return`${v} B`;if(v<1048576)return`${Math.round(v/1024)} KB`;return`${(v/1048576).toFixed(1)} MB`}
+function renderDocuments(){const search=($("documentSearch")?.value||"").trim().toLowerCase(),category=$("documentCategoryFilter")?.value||"",status=$("documentStatusFilter")?.value||"";const categories=[...new Set(state.documents.map(i=>i.category).filter(Boolean))].sort();const f=$("documentCategoryFilter");if(f){const p=f.value;f.innerHTML=`<option value="">All categories</option>`+categories.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");if(categories.includes(p))f.value=p}$("documentCount").textContent=state.documents.length;$("documentCategoryCount").textContent=categories.length;$("storedDocumentCount").textContent=state.documents.filter(i=>i.fileData).length;const docs=[...state.documents].filter(i=>!category||i.category===category).filter(i=>!status||i.status===status).filter(i=>!search||[i.title,i.category,i.description,i.owner,i.status,i.fileName,i.tags].join(" ").toLowerCase().includes(search)).sort((a,b)=>(b.documentDate||b.createdAt||"").localeCompare(a.documentDate||a.createdAt||""));$("documentsList").innerHTML=docs.map(i=>{const target=i.fileData||i.externalUrl||"",can=Boolean(target);return`<article class="document-card"><div class="document-card-top"><div class="document-icon">${escapeHtml(documentTypeLabel(i))}</div><div class="document-card-body"><span class="eyebrow">${escapeHtml(i.category||"UNCATEGORIZED")}</span><h3>${escapeHtml(i.title||"Untitled Document")}</h3></div><span class="pill ${i.status==="Archived"||i.status==="Expired"?"alert":"gold"}">${escapeHtml(i.status||"Active")}</span></div>${i.description?`<p class="muted">${escapeHtml(i.description)}</p>`:""}<div class="document-meta">${i.owner?`<span><strong>Owner:</strong> ${escapeHtml(i.owner)}</span>`:""}${i.documentDate?`<span><strong>Date:</strong> ${formatDate(i.documentDate)}</span>`:""}<span><strong>File:</strong> ${escapeHtml(i.fileName||i.externalUrl?i.fileName||"External link":"No file attached")}${i.fileSize?` · ${formatFileSize(i.fileSize)}`:""}</span>${i.tags?`<span><strong>Tags:</strong> ${escapeHtml(i.tags)}</span>`:""}</div><div class="document-card-actions">${can?`<a class="btn primary small document-link" href="${escapeHtml(target)}" ${i.fileData?`download="${escapeHtml(i.fileName||"document")}"`:`target="_blank" rel="noopener"`}>${i.fileData?"Download":"Open Link"}</a>`:""}<button class="btn secondary small" type="button" data-edit-type="document" data-edit-id="${i.id}">Edit</button><button class="btn danger small" type="button" data-delete-type="document" data-delete-id="${i.id}">Delete</button></div></article>`}).join("")||`<div class="empty-state">No documents match the selected filters.</div>`}
+
 function renderMusic() {
   const songs = [...state.songs].sort((a, b) => (a.serviceDate || "9999").localeCompare(b.serviceDate || "9999"));
   const licenses = [...state.licenses].sort((a, b) => (a.provider || "").localeCompare(b.provider || ""));
@@ -539,71 +557,8 @@ function rentalStatus(rental) {
   return rental.status || "Checked Out";
 }
 
-function renderEquipment() {
-  $("equipmentCount").textContent = state.equipment.length;
-
-  const activeRentals = state.rentals.filter((rental) => rental.status !== "Returned");
-  const overdueRentals = activeRentals.filter((rental) => rentalStatus(rental) === "Overdue");
-
-  $("activeRentalCount").textContent = activeRentals.length;
-  $("overdueRentalCount").textContent = overdueRentals.length;
-
-  $("equipmentList").innerHTML = state.equipment.map((item) => recordCard(
-    "equipment",
-    item,
-    item.category || "EQUIPMENT",
-    item.name || "Unnamed",
-    item.location || "",
-    [item.status || "Unknown", item.condition || "Unknown"]
-  )).join("") || `<div class="empty-state">No equipment yet.</div>`;
-
-  const rentals = [...state.rentals].sort((a, b) => (b.checkoutDate || "").localeCompare(a.checkoutDate || ""));
-
-  $("rentalsList").innerHTML = rentals.map((rental) => {
-    const status = rentalStatus(rental);
-    const cssStatus = status.toLowerCase().replace(/\s+/g, "-");
-
-    return `
-      <article class="data-card rental-card ${cssStatus}">
-        <div>
-          <span class="rental-status ${cssStatus}">${escapeHtml(status)}</span>
-          <h3>${escapeHtml(rental.equipmentName || "Equipment Rental")}</h3>
-          <p class="muted">Borrower: ${escapeHtml(rental.borrower || "Not entered")}</p>
-          <div class="meta">
-            ${rental.checkoutDate ? `<span class="pill">Out ${formatDate(rental.checkoutDate)}</span>` : ""}
-            ${rental.dueDate ? `<span class="pill gold">Due ${formatDate(rental.dueDate)}</span>` : ""}
-            ${rental.returnedDate ? `<span class="pill">Returned ${formatDate(rental.returnedDate)}</span>` : ""}
-          </div>
-          ${rental.notes ? `<p>${escapeHtml(rental.notes)}</p>` : ""}
-        </div>
-        <div class="card-actions">
-          <button class="btn secondary small" type="button" data-edit-type="rental" data-edit-id="${rental.id}">Edit</button>
-          ${status !== "Returned" ? `<button class="btn primary small" type="button" data-return-rental="${rental.id}">Mark Returned</button>` : ""}
-          <button class="btn danger small" type="button" data-delete-type="rental" data-delete-id="${rental.id}">Delete</button>
-        </div>
-      </article>`;
-  }).join("") || `<div class="empty-state">No equipment rentals yet.</div>`;
-
-  const alerts = state.equipment.filter((item) => item.status !== "Ready" || item.condition === "Attention");
-
-  $("equipmentSnapshot").innerHTML = [
-    ...overdueRentals.slice(0, 2).map((rental) => ({
-      name: rental.equipmentName || "Rental",
-      detail: `Overdue · ${rental.borrower || "Borrower not entered"}`,
-      status: "Overdue"
-    })),
-    ...alerts.slice(0, 3).map((item) => ({
-      name: item.name,
-      detail: item.location || "",
-      status: item.status || item.condition
-    }))
-  ].map((item) => `
-    <div class="list-item">
-      <div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.detail)}</small></div>
-      <span class="pill alert">${escapeHtml(item.status)}</span>
-    </div>
-  `).join("") || `<div class="empty-state">No equipment alerts.</div>`;
-}
+function maintenanceStatus(record){if(record.status==="Completed")return"Completed";if(record.dueDate&&new Date(`${record.dueDate}T23:59:59`)<new Date())return"Overdue";return record.status||"Reported"}
+function renderEquipment(){$("equipmentCount").textContent=state.equipment.length;const active=state.rentals.filter(r=>r.status!=="Returned"),overdue=active.filter(r=>rentalStatus(r)==="Overdue"),open=state.maintenance.filter(r=>r.status!=="Completed"),due=open.filter(r=>{if(!r.dueDate)return false;const d=new Date(`${r.dueDate}T23:59:59`),s=new Date();s.setDate(s.getDate()+7);return d<=s});$("activeRentalCount").textContent=active.length;$("overdueRentalCount").textContent=overdue.length;$("openMaintenanceCount").textContent=open.length;$("dueMaintenanceCount").textContent=due.length;$("equipmentList").innerHTML=state.equipment.map(i=>recordCard("equipment",i,i.category||"EQUIPMENT",i.name||"Unnamed",i.location||"",[i.status||"Unknown",i.condition||"Unknown"])).join("")||`<div class="empty-state">No equipment yet.</div>`;const rentals=[...state.rentals].sort((a,b)=>(b.checkoutDate||"").localeCompare(a.checkoutDate||""));$("rentalsList").innerHTML=rentals.map(r=>{const status=rentalStatus(r),css=status.toLowerCase().replace(/\s+/g,"-");return`<article class="data-card rental-card ${css}"><div><span class="rental-status ${css}">${escapeHtml(status)}</span><h3>${escapeHtml(r.equipmentName||"Equipment Rental")}</h3><p class="muted">Borrower: ${escapeHtml(r.borrower||"Not entered")}</p><div class="meta">${r.checkoutDate?`<span class="pill">Out ${formatDate(r.checkoutDate)}</span>`:""}${r.dueDate?`<span class="pill gold">Due ${formatDate(r.dueDate)}</span>`:""}${r.returnedDate?`<span class="pill">Returned ${formatDate(r.returnedDate)}</span>`:""}</div>${r.notes?`<p>${escapeHtml(r.notes)}</p>`:""}</div><div class="card-actions"><button class="btn secondary small" type="button" data-edit-type="rental" data-edit-id="${r.id}">Edit</button>${status!=="Returned"?`<button class="btn primary small" type="button" data-return-rental="${r.id}">Mark Returned</button>`:""}<button class="btn danger small" type="button" data-delete-type="rental" data-delete-id="${r.id}">Delete</button></div></article>`}).join("")||`<div class="empty-state">No equipment rentals yet.</div>`;const ef=$("maintenanceEquipmentFilter");if(ef){const p=ef.value;ef.innerHTML=`<option value="">All equipment</option>`+state.equipment.map(i=>`<option value="${i.id}">${escapeHtml(i.name||"Unnamed Equipment")}</option>`).join("");if(state.equipment.some(i=>i.id===p))ef.value=p}const sf=$("maintenanceStatusFilter")?.value||"",eqf=$("maintenanceEquipmentFilter")?.value||"";const recs=[...state.maintenance].filter(r=>!sf||r.status===sf).filter(r=>!eqf||r.equipmentId===eqf).sort((a,b)=>(b.reportedDate||"").localeCompare(a.reportedDate||""));$("maintenanceList").innerHTML=recs.map(r=>{const status=maintenanceStatus(r),css=status.toLowerCase().replace(/\s+/g,"-");return`<article class="data-card maintenance-card ${css}"><div><span class="maintenance-status ${css}">${escapeHtml(status)}</span><h3>${escapeHtml(r.equipmentName||"Equipment Maintenance")}</h3><p class="muted">${escapeHtml(r.maintenanceType||"Maintenance")}${r.issue?` · ${escapeHtml(r.issue)}`:""}</p><div class="meta">${r.reportedDate?`<span class="pill">Reported ${formatDate(r.reportedDate)}</span>`:""}${r.dueDate?`<span class="pill gold">Due ${formatDate(r.dueDate)}</span>`:""}${r.priority?`<span class="pill ${r.priority==="High"||r.priority==="Urgent"?"alert":""}">${escapeHtml(r.priority)}</span>`:""}${r.cost?`<span class="pill">Cost $${escapeHtml(r.cost)}</span>`:""}</div>${r.vendor?`<p><strong>Vendor:</strong> ${escapeHtml(r.vendor)}</p>`:""}${r.notes?`<p>${escapeHtml(r.notes)}</p>`:""}</div><div class="card-actions"><button class="btn secondary small" type="button" data-edit-type="maintenance" data-edit-id="${r.id}">Edit</button>${status!=="Completed"?`<button class="btn primary small" type="button" data-complete-maintenance="${r.id}">Mark Completed</button>`:""}<button class="btn danger small" type="button" data-delete-type="maintenance" data-delete-id="${r.id}">Delete</button></div></article>`}).join("")||`<div class="empty-state">No maintenance records match the selected filters.</div>`;const inv=state.equipment.filter(i=>i.status!=="Ready"||i.condition==="Attention"),ma=open.filter(r=>maintenanceStatus(r)==="Overdue"||r.priority==="Urgent"||r.priority==="High").slice(0,3).map(r=>({name:r.equipmentName||"Maintenance",detail:r.issue||r.maintenanceType||"",status:maintenanceStatus(r)}));$("equipmentSnapshot").innerHTML=[...overdue.slice(0,2).map(r=>({name:r.equipmentName||"Rental",detail:`Overdue · ${r.borrower||"Borrower not entered"}`,status:"Overdue"})),...ma,...inv.slice(0,2).map(i=>({name:i.name,detail:i.location||"",status:i.status||i.condition}))].map(i=>`<div class="list-item"><div><strong>${escapeHtml(i.name)}</strong><small>${escapeHtml(i.detail)}</small></div><span class="pill alert">${escapeHtml(i.status)}</span></div>`).join("")||`<div class="empty-state">No equipment alerts.</div>`}
 
 function renderProfiles() {
   $("profilesList").innerHTML = state.profiles.map((profile) => `
@@ -707,17 +662,11 @@ async function deleteRecord(type, id) {
   showToast("Item deleted.");
 }
 
-async function markRentalReturned(id) {
-  const returnedDate = new Date().toISOString().slice(0, 10);
-  await saveRecord("rental", id, {
-    status: "Returned",
-    returnedDate,
-    updatedAt: new Date().toISOString()
-  });
-  showToast("Rental marked returned.");
-}
+async function markRentalReturned(id){const returnedDate=new Date().toISOString().slice(0,10);await saveRecord("rental",id,{status:"Returned",returnedDate,updatedAt:new Date().toISOString()});showToast("Rental marked returned.")}
+async function markMaintenanceCompleted(id){await saveRecord("maintenance",id,{status:"Completed",completedDate:new Date().toISOString().slice(0,10),updatedAt:new Date().toISOString()});showToast("Maintenance marked completed.")}
 
 const modalDefinitions = {
+  document:{title:"Document",eyebrow:"DOCUMENT LIBRARY",fields:[{name:"title",label:"Document title",type:"text",required:true},{name:"category",label:"Category",type:"select",options:["Policies & Procedures","Forms","Copyright & Licenses","Equipment Manuals","Service Planning","Training","Meeting Notes","Graphics & Branding","Contracts","Other"]},{name:"description",label:"Description",type:"textarea"},{name:"owner",label:"Owner / ministry",type:"text"},{name:"documentDate",label:"Document date",type:"date"},{name:"status",label:"Status",type:"select",options:["Active","Draft","Archived","Expired"]},{name:"tags",label:"Tags",type:"text"},{name:"externalUrl",label:"External link",type:"url"},{name:"documentFile",label:"Upload a small file",type:"document-file"}]},
   announcement: {
     title: "Announcement",
     eyebrow: "COMMUNICATION + SCREEN GRAPHICS",
@@ -768,6 +717,7 @@ const modalDefinitions = {
       { name: "notes", label: "Coverage notes", type: "textarea" }
     ]
   },
+  maintenance:{title:"Maintenance Record",eyebrow:"EQUIPMENT SERVICE",fields:[{name:"equipmentId",label:"Equipment",type:"equipment-select",required:true},{name:"maintenanceType",label:"Maintenance type",type:"select",options:["Inspection","Cleaning","Preventive Maintenance","Repair","Battery Replacement","Software / Firmware","Calibration","Other"]},{name:"issue",label:"Issue or work needed",type:"textarea",required:true},{name:"reportedDate",label:"Reported date",type:"date"},{name:"dueDate",label:"Due date",type:"date"},{name:"status",label:"Status",type:"select",options:["Reported","Scheduled","In Progress","Waiting on Parts","Completed"]},{name:"priority",label:"Priority",type:"select",options:["Low","Normal","High","Urgent"]},{name:"vendor",label:"Vendor / technician",type:"text"},{name:"cost",label:"Cost",type:"number"},{name:"completedDate",label:"Completed date",type:"date"},{name:"notes",label:"Service notes",type:"textarea"}]},
   equipment: {
     title: "Equipment",
     eyebrow: "INVENTORY",
@@ -822,7 +772,7 @@ function openModal(type, id = null) {
   state.modal = {
     type,
     id,
-    existingGraphicData: record?.graphicData || null
+    existingGraphicData: record?.graphicData || null,existingFileData:record?.fileData||null,existingFileName:record?.fileName||null,existingFileType:record?.fileType||null,existingFileSize:record?.fileSize||0
   };
 
   $("entryForm").reset();
@@ -859,44 +809,26 @@ function openModal(type, id = null) {
       </label>`;
     }
 
-    if (field.type === "file") {
-      return `<label class="modal-field file-box">${field.label}${optional}
-        <input id="graphicFileInput" name="${field.name}" type="file" accept="image/*">
-        <div id="graphicPreview" class="preview ${record?.graphicData || record?.graphicUrl ? "show" : ""}">
-          <img src="${escapeHtml(record?.graphicData || record?.graphicUrl || "")}" alt="Graphic preview">
-        </div>
-      </label>`;
-    }
-
+    if(field.type==="file")return`<label class="modal-field file-box">${field.label}${optional}<input id="graphicFileInput" name="${field.name}" type="file" accept="image/*"><div id="graphicPreview" class="preview ${record?.graphicData||record?.graphicUrl?"show":""}"><img src="${escapeHtml(record?.graphicData||record?.graphicUrl||"")}" alt="Graphic preview"></div></label>`;
+    if(field.type==="document-file")return`<label class="modal-field file-box">${field.label}${optional}<input id="documentFileInput" name="${field.name}" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.jpg,.jpeg,.png"><span class="file-size-note">Small files only: maximum 650 KB. Larger files should use the External Link field.</span>${record?.fileName?`<span class="file-size-note">Current file: ${escapeHtml(record.fileName)}${record.fileSize?` · ${formatFileSize(record.fileSize)}`:""}</span>`:""}</label>`;
     return `<label class="modal-field">${field.label}${optional}<input name="${field.name}" type="${field.type}" value="${escapeHtml(value)}" ${required}></label>`;
   }).join("");
 
   const fileInput = $("graphicFileInput");
-  if (fileInput) {
-    fileInput.addEventListener("change", async () => {
-      const file = fileInput.files?.[0];
-      if (!file) return;
-
-      try {
-        fileInput.dataset.compressed = await compressImage(file);
-        const preview = $("graphicPreview");
-        preview.querySelector("img").src = fileInput.dataset.compressed;
-        preview.classList.add("show");
-      } catch {
-        $("modalMessage").textContent = "The graphic could not be previewed.";
-      }
-    });
-  }
-
+  if(fileInput){fileInput.addEventListener("change",async()=>{const file=fileInput.files?.[0];if(!file)return;try{fileInput.dataset.compressed=await compressImage(file);const preview=$("graphicPreview");preview.querySelector("img").src=fileInput.dataset.compressed;preview.classList.add("show")}catch{$("modalMessage").textContent="The graphic could not be previewed."}})}
+  const documentFileInput=$("documentFileInput");
+  if(documentFileInput){documentFileInput.addEventListener("change",async()=>{const file=documentFileInput.files?.[0];if(!file)return;if(file.size>650*1024){documentFileInput.value="";$("modalMessage").textContent="This file is larger than 650 KB. Please use the External Link field.";return}try{documentFileInput.dataset.fileData=await readFileAsDataUrl(file);documentFileInput.dataset.fileName=file.name;documentFileInput.dataset.fileType=file.type||"application/octet-stream";documentFileInput.dataset.fileSize=String(file.size);$("modalMessage").textContent=`Ready to save: ${file.name}`}catch{$("modalMessage").textContent="The file could not be read."}})}
   $("entryModal").showModal();
 }
 
 function closeModal() {
   $("entryForm").reset();
   $("modalMessage").textContent = "";
-  state.modal = { type: null, id: null, existingGraphicData: null };
+  state.modal={type:null,id:null,existingGraphicData:null,existingFileData:null,existingFileName:null,existingFileType:null,existingFileSize:0};
   if ($("entryModal").open) $("entryModal").close();
 }
+
+function readFileAsDataUrl(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=reject;reader.onload=()=>resolve(reader.result);reader.readAsDataURL(file)})}
 
 function compressImage(file) {
   return new Promise((resolve, reject) => {
@@ -949,8 +881,9 @@ document.addEventListener("click", async (event) => {
     await deleteRecord(deleteButton.dataset.deleteType, deleteButton.dataset.deleteId);
   }
 
-  const returnButton = event.target.closest("[data-return-rental]");
-  if (returnButton) await markRentalReturned(returnButton.dataset.returnRental);
+  const returnButton=event.target.closest("[data-return-rental]");if(returnButton)await markRentalReturned(returnButton.dataset.returnRental);
+  const completeButton=event.target.closest("[data-complete-maintenance]");if(completeButton)await markMaintenanceCompleted(completeButton.dataset.completeMaintenance);
+  const equipmentSubviewButton=event.target.closest("[data-equipment-subview]");if(equipmentSubviewButton){document.querySelectorAll(".equipment-subnav .subnav-button").forEach(b=>b.classList.toggle("active",b===equipmentSubviewButton));document.querySelectorAll(".equipment-subview").forEach(p=>p.classList.toggle("active",p.id===equipmentSubviewButton.dataset.equipmentSubview))}
 
   const subviewButton = event.target.closest("[data-subview]");
   if (subviewButton) {
@@ -1056,7 +989,7 @@ $("saveSettingsButton").addEventListener("click", async () => {
     churchName: $("churchName").value,
     churchWebsite: $("churchWebsite").value,
     defaultCallTime: $("defaultCallTime").value,
-    version: "0.5"
+    version: "0.7"
   };
 
   state.settings = data;
@@ -1077,19 +1010,12 @@ $("entryForm").addEventListener("submit", async (event) => {
   const id = state.modal.id;
   const data = Object.fromEntries(new FormData(event.currentTarget));
 
-  if (type === "rental") {
-    const equipment = state.equipment.find((item) => item.id === data.equipmentId);
-    data.equipmentName = equipment?.name || "Equipment";
-  }
-
-  delete data.graphicFile;
+  if(type==="rental"||type==="maintenance"){const equipment=state.equipment.find(i=>i.id===data.equipmentId);data.equipmentName=equipment?.name||"Equipment"}
+  delete data.graphicFile;delete data.documentFile;
 
   const graphicFileInput = $("graphicFileInput");
-  if (graphicFileInput?.dataset.compressed) {
-    data.graphicData = graphicFileInput.dataset.compressed;
-  } else if (state.modal.existingGraphicData) {
-    data.graphicData = state.modal.existingGraphicData;
-  }
+  if(graphicFileInput?.dataset.compressed)data.graphicData=graphicFileInput.dataset.compressed;else if(state.modal.existingGraphicData)data.graphicData=state.modal.existingGraphicData;
+  const documentFileInput=$("documentFileInput");if(documentFileInput?.dataset.fileData){data.fileData=documentFileInput.dataset.fileData;data.fileName=documentFileInput.dataset.fileName;data.fileType=documentFileInput.dataset.fileType;data.fileSize=Number(documentFileInput.dataset.fileSize||0)}else if(state.modal.existingFileData){data.fileData=state.modal.existingFileData;data.fileName=state.modal.existingFileName;data.fileType=state.modal.existingFileType;data.fileSize=state.modal.existingFileSize}
 
   Object.keys(data).forEach((key) => {
     if (data[key] === "") delete data[key];
@@ -1117,6 +1043,8 @@ function changeMonth(amount) {
   state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() + amount, 1);
   renderCalendars();
 }
+
+$("documentCategoryFilter").addEventListener("change",renderDocuments);$("documentStatusFilter").addEventListener("change",renderDocuments);$("documentSearch").addEventListener("input",renderDocuments);$("maintenanceStatusFilter").addEventListener("change",renderEquipment);$("maintenanceEquipmentFilter").addEventListener("change",renderEquipment);
 
 $("dashboardPrevMonth").addEventListener("click", () => changeMonth(-1));
 $("dashboardNextMonth").addEventListener("click", () => changeMonth(1));
@@ -1256,6 +1184,7 @@ const reportDefinitions = {
       }));
     }
   },
+  documentIndex:{title:"Document Library Index",dateField:"Document Date",filterLabel:"Category",getRows(){return[...state.documents].map(i=>({"Document Date":i.documentDate||"","Title":i.title||"","Category":i.category||"","Status":i.status||"","Owner / Ministry":i.owner||"","Description":i.description||"","Tags":i.tags||"","File Name":i.fileName||"","Storage":i.fileData?"Stored in App":i.externalUrl?"External Link":"Metadata Only","External Link":i.externalUrl||""}))}},
   equipmentInventory: {
     title: "Equipment Inventory",
     dateField: null,
@@ -1291,23 +1220,12 @@ const reportDefinitions = {
         }));
     }
   },
+  maintenanceHistory:{title:"Equipment Maintenance History",dateField:"Reported Date",filterLabel:"Status",getRows(){return[...state.maintenance].sort((a,b)=>(b.reportedDate||"").localeCompare(a.reportedDate||"")).map(r=>({"Reported Date":r.reportedDate||"","Equipment":r.equipmentName||"","Maintenance Type":r.maintenanceType||"","Issue / Work Needed":r.issue||"","Priority":r.priority||"","Status":maintenanceStatus(r),"Due Date":r.dueDate||"","Completed Date":r.completedDate||"","Vendor / Technician":r.vendor||"","Cost":r.cost||"","Notes":r.notes||""}))}},
   equipmentAlerts: {
     title: "Equipment Maintenance & Alerts",
     dateField: null,
     filterLabel: "Status",
-    getRows() {
-      return [...state.equipment]
-        .filter((item) => item.status !== "Ready" || item.condition === "Attention")
-        .map((item) => ({
-          "Equipment": item.name || "",
-          "Category": item.category || "",
-          "Status": item.status || "",
-          "Condition": item.condition || "",
-          "Location": item.location || "",
-          "Serial Number": item.serialNumber || "",
-          "Maintenance Notes": item.notes || ""
-        }));
-    }
+    getRows(){const inventory=[...state.equipment].filter(i=>i.status!=="Ready"||i.condition==="Attention").map(i=>({"Equipment":i.name||"","Category":i.category||"","Status":i.status||"","Condition":i.condition||"","Location":i.location||"","Serial Number":i.serialNumber||"","Maintenance Notes":i.notes||""}));const maintenance=[...state.maintenance].filter(r=>r.status!=="Completed").map(r=>({"Equipment":r.equipmentName||"","Category":r.maintenanceType||"Maintenance","Status":maintenanceStatus(r),"Condition":r.priority||"","Location":r.vendor||"","Serial Number":"","Maintenance Notes":r.issue||r.notes||""}));return[...inventory,...maintenance]}
   },
   teamDirectory: {
     title: "Media Team Directory",
@@ -1362,7 +1280,9 @@ const reportDefinitions = {
         { "Date": `${year}-01-01`, "Category": "Announcements", "Total": state.announcements.filter((item) => inYear(item.displayStart) || inYear((item.createdAt || "").slice(0, 10))).length, "Notes": "Announcement records" },
         { "Date": `${year}-01-01`, "Category": "Graphics", "Total": state.announcements.filter((item) => (item.graphicData || item.graphicUrl) && (inYear(item.displayStart) || inYear((item.createdAt || "").slice(0, 10)))).length, "Notes": "Announcements with stored graphics" },
         { "Date": `${year}-01-01`, "Category": "Songs", "Total": state.songs.filter((item) => inYear(item.serviceDate)).length, "Notes": "Song-use records" },
+        { "Date": `${year}-01-01`, "Category": "Documents", "Total": state.documents.length, "Notes": "Current document-library records" },
         { "Date": `${year}-01-01`, "Category": "Equipment Rentals", "Total": state.rentals.filter((item) => inYear(item.checkoutDate)).length, "Notes": "Checkout and rental records" },
+        { "Date": `${year}-01-01`, "Category": "Equipment Maintenance", "Total": state.maintenance.filter((item) => inYear(item.reportedDate)).length, "Notes": "Maintenance and repair records" },
         { "Date": `${year}-01-01`, "Category": "Equipment Inventory", "Total": state.equipment.length, "Notes": "Current inventory records" },
         { "Date": `${year}-01-01`, "Category": "Media Team Profiles", "Total": state.profiles.length, "Notes": "Current team profiles" }
       ];
