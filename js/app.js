@@ -7,21 +7,25 @@ const state = {
   mode: configured ? "firebase" : "demo",
   user: null,
   isRegister: false,
-  service: null,
+  services: [],
+  currentServiceId: null,
   announcements: [],
   events: [],
   songs: [],
   licenses: [],
   equipment: [],
+  rentals: [],
   profiles: [],
   settings: {},
-  monthCursor: new Date()
+  monthCursor: new Date(),
+  modal: { type: null, id: null, existingGraphicData: null }
 };
 
 let fb = {};
 
 const demoSeed = {
-  service: {
+  services: [{
+    id: "demo-service",
     serviceDate: new Date().toISOString().slice(0, 10),
     serviceName: "Sunday Morning Worship",
     callTime: "07:45",
@@ -39,27 +43,92 @@ const demoSeed = {
     streamReady: false,
     camerasReady: true,
     choirReady: true
-  },
-  announcements: [
-    { id: "demo-announcement", title: "Media Team Call Time", message: "Report by 7:45 AM Sunday.", priority: "Urgent", graphicStatus: "Ready" }
-  ],
-  events: [
-    { id: "demo-event", title: "Monday Night Study Hour", date: new Date(Date.now() + 86400000).toISOString().slice(0, 10), time: "18:00", location: "Sanctuary", coverage: "Slides and livestream" }
-  ],
-  songs: [
-    { id: "demo-song", title: "Total Praise", artist: "Richard Smallwood", serviceDate: new Date().toISOString().slice(0, 10), servicePosition: "Choir Selection", choir: "Mass Choir", notes: "Confirm track and soloist." }
-  ],
-  licenses: [
-    { id: "demo-license", provider: "CCLI", licenseType: "Church Copyright License", status: "Researching", notes: "Streaming coverage under review." }
-  ],
-  equipment: [
-    { id: "demo-camera", name: "Camera 1", category: "Cameras", status: "Ready", location: "Booth", condition: "Good" },
-    { id: "demo-mic", name: "Wireless Microphone 3", category: "Audio", status: "Needs battery", location: "Audio cabinet", condition: "Attention" }
-  ],
-  profiles: [
-    { id: "demo-profile", name: "Shayla Kelly", role: "Administrator / Graphics", skills: "Graphics, slides, planning" }
-  ],
+  }],
+  announcements: [{
+    id: "demo-announcement",
+    title: "Media Team Call Time",
+    message: "Report by 7:45 AM Sunday.",
+    priority: "Urgent",
+    graphicStatus: "Ready"
+  }],
+  events: [{
+    id: "demo-event",
+    title: "Monday Night Study Hour",
+    date: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+    time: "18:00",
+    location: "Sanctuary",
+    coverage: "Slides and livestream"
+  }],
+  songs: [{
+    id: "demo-song",
+    title: "Total Praise",
+    artist: "Richard Smallwood",
+    serviceDate: new Date().toISOString().slice(0, 10),
+    servicePosition: "Choir Selection",
+    choir: "Mass Choir",
+    notes: "Confirm track and soloist."
+  }],
+  licenses: [{
+    id: "demo-license",
+    provider: "CCLI",
+    licenseType: "Church Copyright License",
+    status: "Researching",
+    notes: "Streaming coverage under review."
+  }],
+  equipment: [{
+    id: "demo-camera",
+    name: "Camera 1",
+    category: "Cameras",
+    status: "Ready",
+    location: "Booth",
+    condition: "Good"
+  }, {
+    id: "demo-mic",
+    name: "Wireless Microphone 3",
+    category: "Audio",
+    status: "Needs battery",
+    location: "Audio cabinet",
+    condition: "Attention"
+  }],
+  rentals: [{
+    id: "demo-rental",
+    equipmentId: "demo-camera",
+    equipmentName: "Camera 1",
+    borrower: "Robert",
+    checkoutDate: new Date().toISOString().slice(0, 10),
+    dueDate: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10),
+    status: "Checked Out",
+    notes: "Special event coverage."
+  }],
+  profiles: [{
+    id: "demo-profile",
+    name: "Shayla Kelly",
+    role: "Administrator / Graphics",
+    skills: "Graphics, slides, planning"
+  }],
   settings: {}
+};
+
+const collectionMap = {
+  service: "services",
+  announcement: "announcements",
+  event: "events",
+  song: "songs",
+  license: "licenses",
+  equipment: "equipment",
+  rental: "rentals",
+  profile: "profiles"
+};
+
+const stateMap = {
+  service: "services",
+  announcement: "announcements",
+  event: "events",
+  song: "songs",
+  license: "licenses",
+  equipment: "equipment",
+  rental: "rentals",
+  profile: "profiles"
 };
 
 async function initFirebase() {
@@ -86,7 +155,7 @@ async function initFirebase() {
       if (user) {
         state.user = user;
         startFirestoreListeners();
-        await loadSingleDocuments();
+        await loadSettings();
         showApp();
       } else {
         showAuth();
@@ -127,19 +196,21 @@ function initials(name) {
 }
 
 function loadDemo() {
-  const saved = localStorage.getItem("mvcc-v04-demo");
+  const saved = localStorage.getItem("mvcc-v05-demo");
   const source = saved ? JSON.parse(saved) : structuredClone(demoSeed);
   Object.assign(state, source);
+  if (!state.currentServiceId && state.services.length) state.currentServiceId = state.services[0].id;
 }
 
 function saveDemo() {
-  localStorage.setItem("mvcc-v04-demo", JSON.stringify({
-    service: state.service,
+  localStorage.setItem("mvcc-v05-demo", JSON.stringify({
+    services: state.services,
     announcements: state.announcements,
     events: state.events,
     songs: state.songs,
     licenses: state.licenses,
     equipment: state.equipment,
+    rentals: state.rentals,
     profiles: state.profiles,
     settings: state.settings
   }));
@@ -147,26 +218,29 @@ function saveDemo() {
 
 function startFirestoreListeners() {
   const collections = [
+    ["services", "services"],
     ["announcements", "announcements"],
     ["events", "events"],
     ["songs", "songs"],
     ["licenses", "licenses"],
     ["equipment", "equipment"],
+    ["rentals", "rentals"],
     ["profiles", "profiles"]
   ];
 
   for (const [collectionName, stateKey] of collections) {
     fb.onSnapshot(fb.collection(fb.db, collectionName), (snapshot) => {
       state[stateKey] = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      if (stateKey === "services") {
+        const sorted = sortedServices();
+        if (!state.currentServiceId && sorted.length) state.currentServiceId = sorted[0].id;
+      }
       renderAll();
     });
   }
 }
 
-async function loadSingleDocuments() {
-  const serviceSnap = await fb.getDoc(fb.doc(fb.db, "services", "current"));
-  state.service = serviceSnap.exists() ? serviceSnap.data() : null;
-
+async function loadSettings() {
   const settingsSnap = await fb.getDoc(fb.doc(fb.db, "settings", "church"));
   state.settings = settingsSnap.exists() ? settingsSnap.data() : {};
 }
@@ -180,17 +254,6 @@ function switchView(viewName) {
   $(`${viewName}View`).classList.add("active");
   $("pageTitle").textContent = viewName.charAt(0).toUpperCase() + viewName.slice(1);
   $("sidebar").classList.remove("open");
-}
-
-function renderAll() {
-  renderService();
-  renderAnnouncements();
-  renderEvents();
-  renderMusic();
-  renderEquipment();
-  renderProfiles();
-  renderCalendars();
-  renderSettings();
 }
 
 function escapeHtml(value = "") {
@@ -227,8 +290,27 @@ function showToast(message) {
   setTimeout(() => $("toast").classList.remove("show"), 2200);
 }
 
-function renderService() {
-  const service = state.service;
+function sortedServices() {
+  return [...state.services].sort((a, b) => (a.serviceDate || "9999").localeCompare(b.serviceDate || "9999"));
+}
+
+function currentService() {
+  return state.services.find((service) => service.id === state.currentServiceId) || sortedServices()[0] || null;
+}
+
+function renderAll() {
+  renderServices();
+  renderAnnouncements();
+  renderEvents();
+  renderMusic();
+  renderEquipment();
+  renderProfiles();
+  renderCalendars();
+  renderSettings();
+}
+
+function renderServices() {
+  const service = currentService();
   const readinessFields = ["sermonReady", "graphicsReady", "slidesReady", "audioReady", "streamReady", "camerasReady", "choirReady"];
   const readiness = service
     ? Math.round(readinessFields.filter((field) => service[field]).length / readinessFields.length * 100)
@@ -245,14 +327,61 @@ function renderService() {
       </div>`
     : `<div class="empty-state">No Sunday plan yet.</div>`;
 
-  if (service) {
-    for (const [key, value] of Object.entries(service)) {
-      const element = $(key);
-      if (!element) continue;
-      if (element.type === "checkbox") element.checked = Boolean(value);
-      else element.value = value ?? "";
-    }
-  }
+  fillServiceForm(service);
+
+  $("servicesList").innerHTML = sortedServices().map((item) => `
+    <article class="data-card">
+      <div>
+        <span class="eyebrow">${formatDate(item.serviceDate)}</span>
+        <h3>${escapeHtml(item.serviceName || "Sunday Service")}</h3>
+        <p class="muted">${escapeHtml(item.sermonTitle || "Sermon pending")}${item.scripture ? ` · ${escapeHtml(item.scripture)}` : ""}</p>
+        <div class="meta">
+          ${item.callTime ? `<span class="pill">Call ${formatTime(item.callTime)}</span>` : ""}
+          ${item.startTime ? `<span class="pill gold">Start ${formatTime(item.startTime)}</span>` : ""}
+        </div>
+      </div>
+      <div class="card-actions">
+        <button class="btn secondary small" type="button" data-edit-service="${item.id}">Edit</button>
+        <button class="btn danger small" type="button" data-delete-type="service" data-delete-id="${item.id}">Delete</button>
+      </div>
+    </article>
+  `).join("") || `<div class="empty-state">No saved services yet.</div>`;
+}
+
+function fillServiceForm(service) {
+  const fields = [
+    "serviceDate", "serviceName", "callTime", "startTime", "sermonTitle", "scripture",
+    "speaker", "choirName", "orderOfService", "serviceNotes", "sermonReady", "graphicsReady",
+    "slidesReady", "audioReady", "streamReady", "camerasReady", "choirReady"
+  ];
+
+  $("serviceRecordId").value = service?.id || "";
+
+  fields.forEach((id) => {
+    const element = $(id);
+    const value = service?.[id];
+
+    if (element.type === "checkbox") element.checked = Boolean(value);
+    else element.value = value ?? "";
+  });
+}
+
+function clearServiceForm() {
+  state.currentServiceId = null;
+  $("serviceRecordId").value = "";
+  [
+    "serviceDate", "serviceName", "callTime", "startTime", "sermonTitle", "scripture",
+    "speaker", "choirName", "orderOfService", "serviceNotes"
+  ].forEach((id) => $(id).value = "");
+
+  [
+    "sermonReady", "graphicsReady", "slidesReady", "audioReady",
+    "streamReady", "camerasReady", "choirReady"
+  ].forEach((id) => $(id).checked = false);
+
+  $("serviceDate").value = new Date().toISOString().slice(0, 10);
+  $("callTime").value = state.settings.defaultCallTime || "07:45";
+  showToast("New service form ready.");
 }
 
 function renderAnnouncements() {
@@ -268,22 +397,17 @@ function renderAnnouncements() {
     </div>
   `).join("") || `<div class="empty-state">No announcements.</div>`;
 
-  $("announcementsList").innerHTML = announcements.map((item) => `
-    <article class="data-card">
-      <div>
-        <span class="eyebrow">${escapeHtml(item.graphicStatus || "STATUS PENDING")}</span>
-        <h3>${escapeHtml(item.title || "Untitled")}</h3>
-        <p class="muted">${escapeHtml(item.message || "")}</p>
-        <div class="meta">
-          ${item.displayStart ? `<span class="pill">Starts ${formatDate(item.displayStart)}</span>` : ""}
-          ${item.displayEnd ? `<span class="pill gold">Ends ${formatDate(item.displayEnd)}</span>` : ""}
-        </div>
-      </div>
-      <div class="card-actions">
-        <button class="btn secondary" type="button" data-delete-type="announcement" data-delete-id="${item.id}">Delete</button>
-      </div>
-    </article>
-  `).join("") || `<div class="empty-state">No announcements yet.</div>`;
+  $("announcementsList").innerHTML = announcements.map((item) => recordCard(
+    "announcement",
+    item,
+    item.graphicStatus || "STATUS PENDING",
+    item.title || "Untitled",
+    item.message || "",
+    [
+      item.displayStart ? `Starts ${formatDate(item.displayStart)}` : "",
+      item.displayEnd ? `Ends ${formatDate(item.displayEnd)}` : ""
+    ]
+  )).join("") || `<div class="empty-state">No announcements yet.</div>`;
 
   const graphics = announcements.filter((item) => item.graphicData || item.graphicUrl);
 
@@ -299,31 +423,46 @@ function renderAnnouncements() {
           ${item.displayStart ? `<span class="pill">Show ${formatDate(item.displayStart)}</span>` : ""}
           ${item.displayEnd ? `<span class="pill gold">Through ${formatDate(item.displayEnd)}</span>` : ""}
         </div>
+        <div class="card-actions top-gap">
+          <button class="btn secondary small" type="button" data-edit-type="announcement" data-edit-id="${item.id}">Edit</button>
+        </div>
       </div>
     </article>
   `).join("") || `<div class="empty-state">No screen graphics uploaded yet.</div>`;
 }
 
-function renderEvents() {
-  const events = [...state.events].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-
-  const eventCard = (item) => `
+function recordCard(type, item, eyebrow, title, description, pills = []) {
+  return `
     <article class="data-card">
       <div>
-        <span class="eyebrow">${formatDate(item.date)}</span>
-        <h3>${escapeHtml(item.title || "Untitled Event")}</h3>
-        <p class="muted">${escapeHtml(item.coverage || "")}</p>
+        <span class="eyebrow">${escapeHtml(eyebrow)}</span>
+        <h3>${escapeHtml(title)}</h3>
+        ${description ? `<p class="muted">${escapeHtml(description)}</p>` : ""}
         <div class="meta">
-          ${item.time ? `<span class="pill">${formatTime(item.time)}</span>` : ""}
-          ${item.location ? `<span class="pill gold">${escapeHtml(item.location)}</span>` : ""}
+          ${pills.filter(Boolean).map((pill, index) => `<span class="pill ${index % 2 ? "gold" : ""}">${escapeHtml(pill)}</span>`).join("")}
         </div>
       </div>
       <div class="card-actions">
-        <button class="btn secondary" type="button" data-delete-type="event" data-delete-id="${item.id}">Delete</button>
+        <button class="btn secondary small" type="button" data-edit-type="${type}" data-edit-id="${item.id}">Edit</button>
+        <button class="btn danger small" type="button" data-delete-type="${type}" data-delete-id="${item.id}">Delete</button>
       </div>
     </article>`;
+}
 
-  $("eventsList").innerHTML = events.map(eventCard).join("") || `<div class="empty-state">No events yet.</div>`;
+function renderEvents() {
+  const events = [...state.events].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+  $("eventsList").innerHTML = events.map((item) => recordCard(
+    "event",
+    item,
+    formatDate(item.date),
+    item.title || "Untitled Event",
+    item.coverage || "",
+    [
+      item.time ? formatTime(item.time) : "",
+      item.location || ""
+    ]
+  )).join("") || `<div class="empty-state">No events yet.</div>`;
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -336,7 +475,14 @@ function renderEvents() {
     return date >= today && date <= limit;
   });
 
-  $("calendarUpcoming").innerHTML = upcoming.map(eventCard).join("") || `<div class="empty-state">No events in the next 30 days.</div>`;
+  $("calendarUpcoming").innerHTML = upcoming.map((item) => recordCard(
+    "event",
+    item,
+    formatDate(item.date),
+    item.title || "Untitled Event",
+    item.coverage || "",
+    [item.time ? formatTime(item.time) : "", item.location || ""]
+  )).join("") || `<div class="empty-state">No events in the next 30 days.</div>`;
 
   $("upcomingEvents").innerHTML = upcoming.slice(0, 4).map((item) => `
     <div class="list-item">
@@ -354,39 +500,29 @@ function renderMusic() {
   $("licenseCount").textContent = licenses.length;
   $("sundaySongCount").textContent = songs.filter((song) => song.serviceDate === new Date().toISOString().slice(0, 10)).length;
 
-  $("songsList").innerHTML = songs.map((song) => `
-    <article class="data-card">
-      <div>
-        <span class="eyebrow">${escapeHtml(song.servicePosition || "SONG")}</span>
-        <h3>${escapeHtml(song.title || "Untitled Song")}</h3>
-        <p class="muted">${escapeHtml(song.artist || "")}${song.choir ? ` · ${escapeHtml(song.choir)}` : ""}</p>
-        <div class="meta">
-          ${song.serviceDate ? `<span class="pill">${formatDate(song.serviceDate)}</span>` : ""}
-          ${song.key ? `<span class="pill gold">Key ${escapeHtml(song.key)}</span>` : ""}
-        </div>
-        ${song.notes ? `<p>${escapeHtml(song.notes)}</p>` : ""}
-      </div>
-      <div class="card-actions">
-        <button class="btn secondary" type="button" data-delete-type="song" data-delete-id="${song.id}">Delete</button>
-      </div>
-    </article>
-  `).join("") || `<div class="empty-state">No songs added.</div>`;
+  $("songsList").innerHTML = songs.map((song) => recordCard(
+    "song",
+    song,
+    song.servicePosition || "SONG",
+    song.title || "Untitled Song",
+    `${song.artist || ""}${song.choir ? ` · ${song.choir}` : ""}`,
+    [
+      song.serviceDate ? formatDate(song.serviceDate) : "",
+      song.key ? `Key ${song.key}` : ""
+    ]
+  )).join("") || `<div class="empty-state">No songs added.</div>`;
 
-  $("licensesList").innerHTML = licenses.map((license) => `
-    <article class="data-card">
-      <div>
-        <span class="license-status">${escapeHtml(license.status || "Pending")}</span>
-        <h3>${escapeHtml(license.provider || "Provider")}</h3>
-        <p class="muted">${escapeHtml(license.licenseType || "")}</p>
-        ${license.licenseNumber ? `<p><strong>License:</strong> ${escapeHtml(license.licenseNumber)}</p>` : ""}
-        ${license.renewalDate ? `<span class="pill gold">Renewal ${formatDate(license.renewalDate)}</span>` : ""}
-        ${license.notes ? `<p>${escapeHtml(license.notes)}</p>` : ""}
-      </div>
-      <div class="card-actions">
-        <button class="btn secondary" type="button" data-delete-type="license" data-delete-id="${license.id}">Delete</button>
-      </div>
-    </article>
-  `).join("") || `<div class="empty-state">No copyright records.</div>`;
+  $("licensesList").innerHTML = licenses.map((license) => recordCard(
+    "license",
+    license,
+    license.status || "Pending",
+    license.provider || "Provider",
+    license.licenseType || "",
+    [
+      license.licenseNumber ? `License ${license.licenseNumber}` : "",
+      license.renewalDate ? `Renewal ${formatDate(license.renewalDate)}` : ""
+    ]
+  )).join("") || `<div class="empty-state">No copyright records.</div>`;
 
   $("musicSnapshot").innerHTML = songs.slice(0, 3).map((song) => `
     <div class="list-item">
@@ -396,30 +532,74 @@ function renderMusic() {
   `).join("") || `<div class="empty-state">No music items.</div>`;
 }
 
+function rentalStatus(rental) {
+  if (rental.status === "Returned") return "Returned";
+  if (rental.dueDate && new Date(`${rental.dueDate}T23:59:59`) < new Date()) return "Overdue";
+  return rental.status || "Checked Out";
+}
+
 function renderEquipment() {
-  $("equipmentList").innerHTML = state.equipment.map((item) => `
-    <article class="data-card">
-      <div>
-        <span class="eyebrow">${escapeHtml(item.category || "EQUIPMENT")}</span>
-        <h3>${escapeHtml(item.name || "Unnamed")}</h3>
-        <p class="muted">${escapeHtml(item.location || "")}</p>
-        <div class="meta">
-          <span class="pill">${escapeHtml(item.status || "Unknown")}</span>
-          <span class="pill gold">${escapeHtml(item.condition || "Unknown")}</span>
+  $("equipmentCount").textContent = state.equipment.length;
+
+  const activeRentals = state.rentals.filter((rental) => rental.status !== "Returned");
+  const overdueRentals = activeRentals.filter((rental) => rentalStatus(rental) === "Overdue");
+
+  $("activeRentalCount").textContent = activeRentals.length;
+  $("overdueRentalCount").textContent = overdueRentals.length;
+
+  $("equipmentList").innerHTML = state.equipment.map((item) => recordCard(
+    "equipment",
+    item,
+    item.category || "EQUIPMENT",
+    item.name || "Unnamed",
+    item.location || "",
+    [item.status || "Unknown", item.condition || "Unknown"]
+  )).join("") || `<div class="empty-state">No equipment yet.</div>`;
+
+  const rentals = [...state.rentals].sort((a, b) => (b.checkoutDate || "").localeCompare(a.checkoutDate || ""));
+
+  $("rentalsList").innerHTML = rentals.map((rental) => {
+    const status = rentalStatus(rental);
+    const cssStatus = status.toLowerCase().replace(/\s+/g, "-");
+
+    return `
+      <article class="data-card rental-card ${cssStatus}">
+        <div>
+          <span class="rental-status ${cssStatus}">${escapeHtml(status)}</span>
+          <h3>${escapeHtml(rental.equipmentName || "Equipment Rental")}</h3>
+          <p class="muted">Borrower: ${escapeHtml(rental.borrower || "Not entered")}</p>
+          <div class="meta">
+            ${rental.checkoutDate ? `<span class="pill">Out ${formatDate(rental.checkoutDate)}</span>` : ""}
+            ${rental.dueDate ? `<span class="pill gold">Due ${formatDate(rental.dueDate)}</span>` : ""}
+            ${rental.returnedDate ? `<span class="pill">Returned ${formatDate(rental.returnedDate)}</span>` : ""}
+          </div>
+          ${rental.notes ? `<p>${escapeHtml(rental.notes)}</p>` : ""}
         </div>
-      </div>
-      <div class="card-actions">
-        <button class="btn secondary" type="button" data-delete-type="equipment" data-delete-id="${item.id}">Delete</button>
-      </div>
-    </article>
-  `).join("") || `<div class="empty-state">No equipment yet.</div>`;
+        <div class="card-actions">
+          <button class="btn secondary small" type="button" data-edit-type="rental" data-edit-id="${rental.id}">Edit</button>
+          ${status !== "Returned" ? `<button class="btn primary small" type="button" data-return-rental="${rental.id}">Mark Returned</button>` : ""}
+          <button class="btn danger small" type="button" data-delete-type="rental" data-delete-id="${rental.id}">Delete</button>
+        </div>
+      </article>`;
+  }).join("") || `<div class="empty-state">No equipment rentals yet.</div>`;
 
   const alerts = state.equipment.filter((item) => item.status !== "Ready" || item.condition === "Attention");
 
-  $("equipmentSnapshot").innerHTML = alerts.slice(0, 4).map((item) => `
+  $("equipmentSnapshot").innerHTML = [
+    ...overdueRentals.slice(0, 2).map((rental) => ({
+      name: rental.equipmentName || "Rental",
+      detail: `Overdue · ${rental.borrower || "Borrower not entered"}`,
+      status: "Overdue"
+    })),
+    ...alerts.slice(0, 3).map((item) => ({
+      name: item.name,
+      detail: item.location || "",
+      status: item.status || item.condition
+    }))
+  ].map((item) => `
     <div class="list-item">
-      <div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.location || "")}</small></div>
-      <span class="pill alert">${escapeHtml(item.status || item.condition)}</span>
+      <div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.detail)}</small></div>
+      <span class="pill alert">${escapeHtml(item.status)}</span>
     </div>
   `).join("") || `<div class="empty-state">No equipment alerts.</div>`;
 }
@@ -428,10 +608,14 @@ function renderProfiles() {
   $("profilesList").innerHTML = state.profiles.map((profile) => `
     <article class="profile-card">
       <div class="profile-avatar">${escapeHtml(initials(profile.name || "?"))}</div>
-      <div>
+      <div class="profile-content">
         <h3>${escapeHtml(profile.name || "Unnamed")}</h3>
         <p class="muted">${escapeHtml(profile.role || "Media Team")}</p>
         <small>${escapeHtml(profile.skills || "")}</small>
+        <div class="card-actions top-gap">
+          <button class="btn secondary small" type="button" data-edit-type="profile" data-edit-id="${profile.id}">Edit</button>
+          <button class="btn danger small" type="button" data-delete-type="profile" data-delete-id="${profile.id}">Delete</button>
+        </div>
       </div>
     </article>
   `).join("") || `<div class="empty-state">No profiles yet.</div>`;
@@ -447,18 +631,22 @@ function renderCalendar(targetId, titleId) {
   $(titleId).textContent = state.monthCursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
   let html = names.map((name) => `<div class="day-name">${name}</div>`).join("");
-
   for (let blank = 0; blank < first.getDay(); blank += 1) html += "<div></div>";
 
   for (let day = 1; day <= last.getDate(); day += 1) {
     const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const events = state.events.filter((event) => event.date === iso);
+    const services = state.services.filter((service) => service.serviceDate === iso);
+    const items = [
+      ...services.map((service) => ({ title: service.serviceName || "Service", kind: "service" })),
+      ...events.map((event) => ({ title: event.title || "Event", kind: "event" }))
+    ];
     const isToday = iso === new Date().toISOString().slice(0, 10);
 
     html += `
-      <div class="day ${isToday ? "today" : ""} ${events.length ? "has-event" : ""}">
+      <div class="day ${isToday ? "today" : ""} ${items.length ? "has-event" : ""}">
         <strong>${day}</strong>
-        ${events.slice(0, 2).map((event) => `<span class="event-dot">${escapeHtml(event.title)}</span>`).join("")}
+        ${items.slice(0, 3).map((item) => `<span class="event-dot">${escapeHtml(item.title)}</span>`).join("")}
       </div>`;
   }
 
@@ -476,41 +664,31 @@ function renderSettings() {
   $("defaultCallTime").value = state.settings.defaultCallTime || "07:45";
 }
 
-async function saveDocument(collectionName, documentId, data) {
+async function saveRecord(type, id, data) {
   if (state.mode === "firebase") {
-    await fb.setDoc(fb.doc(fb.db, collectionName, documentId), data, { merge: true });
+    const ref = fb.doc(fb.db, collectionMap[type], id);
+    await fb.setDoc(ref, data, { merge: true });
   } else {
-    saveDemo();
-  }
-}
-
-const collectionMap = {
-  announcement: "announcements",
-  event: "events",
-  song: "songs",
-  license: "licenses",
-  equipment: "equipment",
-  profile: "profiles"
-};
-
-const stateMap = {
-  announcement: "announcements",
-  event: "events",
-  song: "songs",
-  license: "licenses",
-  equipment: "equipment",
-  profile: "profiles"
-};
-
-async function addRecord(type, data) {
-  if (state.mode === "firebase") {
-    await fb.addDoc(fb.collection(fb.db, collectionMap[type]), data);
-  } else {
-    data.id = crypto.randomUUID();
-    state[stateMap[type]].push(data);
+    const key = stateMap[type];
+    const index = state[key].findIndex((item) => item.id === id);
+    if (index >= 0) state[key][index] = { ...state[key][index], ...data, id };
+    else state[key].push({ ...data, id });
     saveDemo();
     renderAll();
   }
+}
+
+async function createRecord(type, data) {
+  if (state.mode === "firebase") {
+    const docRef = await fb.addDoc(fb.collection(fb.db, collectionMap[type]), data);
+    return docRef.id;
+  }
+
+  const id = crypto.randomUUID();
+  state[stateMap[type]].push({ ...data, id });
+  saveDemo();
+  renderAll();
+  return id;
 }
 
 async function deleteRecord(type, id) {
@@ -524,12 +702,23 @@ async function deleteRecord(type, id) {
     renderAll();
   }
 
+  if (type === "service" && state.currentServiceId === id) state.currentServiceId = null;
   showToast("Item deleted.");
+}
+
+async function markRentalReturned(id) {
+  const returnedDate = new Date().toISOString().slice(0, 10);
+  await saveRecord("rental", id, {
+    status: "Returned",
+    returnedDate,
+    updatedAt: new Date().toISOString()
+  });
+  showToast("Rental marked returned.");
 }
 
 const modalDefinitions = {
   announcement: {
-    title: "New Announcement",
+    title: "Announcement",
     eyebrow: "COMMUNICATION + SCREEN GRAPHICS",
     fields: [
       { name: "title", label: "Title", type: "text", required: true },
@@ -539,11 +728,11 @@ const modalDefinitions = {
       { name: "displayStart", label: "Display start date", type: "date" },
       { name: "displayEnd", label: "Display end date", type: "date" },
       { name: "graphicUrl", label: "Graphic link", type: "url" },
-      { name: "graphicFile", label: "Upload graphic thumbnail", type: "file" }
+      { name: "graphicFile", label: "Upload replacement thumbnail", type: "file" }
     ]
   },
   event: {
-    title: "New Event",
+    title: "Event",
     eyebrow: "PRODUCTION CALENDAR",
     fields: [
       { name: "title", label: "Event title", type: "text", required: true },
@@ -554,7 +743,7 @@ const modalDefinitions = {
     ]
   },
   song: {
-    title: "Add Song",
+    title: "Song",
     eyebrow: "SERVICE MUSIC",
     fields: [
       { name: "title", label: "Song title", type: "text", required: true },
@@ -567,7 +756,7 @@ const modalDefinitions = {
     ]
   },
   license: {
-    title: "Add Copyright License",
+    title: "Copyright License",
     eyebrow: "COPYRIGHT RECORD",
     fields: [
       { name: "provider", label: "Provider / organization", type: "text", required: true },
@@ -579,50 +768,92 @@ const modalDefinitions = {
     ]
   },
   equipment: {
-    title: "Add Equipment",
+    title: "Equipment",
     eyebrow: "INVENTORY",
     fields: [
       { name: "name", label: "Equipment name", type: "text", required: true },
       { name: "category", label: "Category", type: "select", options: ["Cameras", "Audio", "Lighting", "Streaming", "Computers", "Accessories"] },
       { name: "status", label: "Status", type: "select", options: ["Ready", "Checked Out", "Needs battery", "Needs repair", "Missing"] },
       { name: "location", label: "Location", type: "text" },
-      { name: "condition", label: "Condition", type: "select", options: ["Good", "Fair", "Attention"] }
+      { name: "condition", label: "Condition", type: "select", options: ["Good", "Fair", "Attention"] },
+      { name: "serialNumber", label: "Serial number", type: "text" },
+      { name: "notes", label: "Notes", type: "textarea" }
+    ]
+  },
+  rental: {
+    title: "Equipment Rental",
+    eyebrow: "CHECKOUT RECORD",
+    fields: [
+      { name: "equipmentId", label: "Equipment", type: "equipment-select", required: true },
+      { name: "borrower", label: "Borrower / ministry / organization", type: "text", required: true },
+      { name: "checkoutDate", label: "Checkout date", type: "date" },
+      { name: "dueDate", label: "Due date", type: "date" },
+      { name: "status", label: "Status", type: "select", options: ["Checked Out", "Reserved", "Returned"] },
+      { name: "returnedDate", label: "Returned date", type: "date" },
+      { name: "contact", label: "Contact information", type: "text" },
+      { name: "notes", label: "Rental notes", type: "textarea" }
     ]
   },
   profile: {
-    title: "Add Media Profile",
+    title: "Media Profile",
     eyebrow: "TEAM MANAGEMENT",
     fields: [
       { name: "name", label: "Name", type: "text", required: true },
       { name: "role", label: "Role", type: "text" },
-      { name: "skills", label: "Skills", type: "textarea" }
+      { name: "email", label: "Email", type: "email" },
+      { name: "phone", label: "Phone", type: "tel" },
+      { name: "skills", label: "Skills", type: "textarea" },
+      { name: "active", label: "Status", type: "select", options: ["Active", "Inactive", "Training"] }
     ]
   }
 };
 
-function openModal(type) {
+function getRecord(type, id) {
+  return state[stateMap[type]].find((item) => item.id === id) || null;
+}
+
+function openModal(type, id = null) {
   const definition = modalDefinitions[type];
   if (!definition) return;
 
+  const record = id ? getRecord(type, id) : null;
+
+  state.modal = {
+    type,
+    id,
+    existingGraphicData: record?.graphicData || null
+  };
+
   $("entryForm").reset();
   $("entryModal").dataset.type = type;
-  $("modalTitle").textContent = definition.title;
+  $("entryModal").dataset.id = id || "";
+  $("modalTitle").textContent = `${id ? "Edit" : "Add"} ${definition.title}`;
   $("modalEyebrow").textContent = definition.eyebrow;
   $("modalMessage").textContent = "";
 
   $("modalFields").innerHTML = definition.fields.map((field) => {
     const optional = field.required ? "" : ` <span class="optional">(optional)</span>`;
     const required = field.required ? "required" : "";
+    const value = record?.[field.name] ?? "";
 
     if (field.type === "textarea") {
-      return `<label class="modal-field">${field.label}${optional}<textarea name="${field.name}" rows="4" ${required}></textarea></label>`;
+      return `<label class="modal-field">${field.label}${optional}<textarea name="${field.name}" rows="4" ${required}>${escapeHtml(value)}</textarea></label>`;
     }
 
     if (field.type === "select") {
       return `<label class="modal-field">${field.label}${optional}
-        <select name="${field.name}">
+        <select name="${field.name}" ${required}>
           <option value="">Select…</option>
-          ${field.options.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("")}
+          ${field.options.map((option) => `<option value="${escapeHtml(option)}" ${option === value ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+        </select>
+      </label>`;
+    }
+
+    if (field.type === "equipment-select") {
+      return `<label class="modal-field">${field.label}${optional}
+        <select name="${field.name}" ${required}>
+          <option value="">Select equipment…</option>
+          ${state.equipment.map((item) => `<option value="${item.id}" ${item.id === value ? "selected" : ""}>${escapeHtml(item.name || "Unnamed Equipment")}</option>`).join("")}
         </select>
       </label>`;
     }
@@ -630,11 +861,13 @@ function openModal(type) {
     if (field.type === "file") {
       return `<label class="modal-field file-box">${field.label}${optional}
         <input id="graphicFileInput" name="${field.name}" type="file" accept="image/*">
-        <div id="graphicPreview" class="preview"><img alt="Graphic preview"></div>
+        <div id="graphicPreview" class="preview ${record?.graphicData || record?.graphicUrl ? "show" : ""}">
+          <img src="${escapeHtml(record?.graphicData || record?.graphicUrl || "")}" alt="Graphic preview">
+        </div>
       </label>`;
     }
 
-    return `<label class="modal-field">${field.label}${optional}<input name="${field.name}" type="${field.type}" ${required}></label>`;
+    return `<label class="modal-field">${field.label}${optional}<input name="${field.name}" type="${field.type}" value="${escapeHtml(value)}" ${required}></label>`;
   }).join("");
 
   const fileInput = $("graphicFileInput");
@@ -648,7 +881,7 @@ function openModal(type) {
         const preview = $("graphicPreview");
         preview.querySelector("img").src = fileInput.dataset.compressed;
         preview.classList.add("show");
-      } catch (error) {
+      } catch {
         $("modalMessage").textContent = "The graphic could not be previewed.";
       }
     });
@@ -660,6 +893,7 @@ function openModal(type) {
 function closeModal() {
   $("entryForm").reset();
   $("modalMessage").textContent = "";
+  state.modal = { type: null, id: null, existingGraphicData: null };
   if ($("entryModal").open) $("entryModal").close();
 }
 
@@ -698,10 +932,24 @@ document.addEventListener("click", async (event) => {
   const modalButton = event.target.closest("[data-open-modal]");
   if (modalButton) openModal(modalButton.dataset.openModal);
 
+  const editButton = event.target.closest("[data-edit-type]");
+  if (editButton) openModal(editButton.dataset.editType, editButton.dataset.editId);
+
+  const serviceEditButton = event.target.closest("[data-edit-service]");
+  if (serviceEditButton) {
+    state.currentServiceId = serviceEditButton.dataset.editService;
+    fillServiceForm(currentService());
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    showToast("Service loaded for editing.");
+  }
+
   const deleteButton = event.target.closest("[data-delete-type]");
   if (deleteButton) {
     await deleteRecord(deleteButton.dataset.deleteType, deleteButton.dataset.deleteId);
   }
+
+  const returnButton = event.target.closest("[data-return-rental]");
+  if (returnButton) await markRentalReturned(returnButton.dataset.returnRental);
 
   const subviewButton = event.target.closest("[data-subview]");
   if (subviewButton) {
@@ -713,6 +961,7 @@ document.addEventListener("click", async (event) => {
 $("menuButton").addEventListener("click", () => $("sidebar").classList.toggle("open"));
 $("modalCloseButton").addEventListener("click", closeModal);
 $("modalCancelButton").addEventListener("click", closeModal);
+$("newServiceButton").addEventListener("click", clearServiceForm);
 
 $("entryModal").addEventListener("click", (event) => {
   if (event.target === $("entryModal")) closeModal();
@@ -786,11 +1035,19 @@ $("saveServiceButton").addEventListener("click", async () => {
   });
 
   data.updatedAt = new Date().toISOString();
-  state.service = data;
 
-  await saveDocument("services", "current", data);
-  renderAll();
-  showToast("Sunday plan saved.");
+  const existingId = $("serviceRecordId").value;
+  if (existingId) {
+    await saveRecord("service", existingId, data);
+    state.currentServiceId = existingId;
+    showToast("Service updated.");
+  } else {
+    data.createdAt = new Date().toISOString();
+    const newId = await createRecord("service", data);
+    state.currentServiceId = newId;
+    $("serviceRecordId").value = newId;
+    showToast("Service saved.");
+  }
 });
 
 $("saveSettingsButton").addEventListener("click", async () => {
@@ -798,35 +1055,58 @@ $("saveSettingsButton").addEventListener("click", async () => {
     churchName: $("churchName").value,
     churchWebsite: $("churchWebsite").value,
     defaultCallTime: $("defaultCallTime").value,
-    version: "0.4"
+    version: "0.5"
   };
 
   state.settings = data;
-  await saveDocument("settings", "church", data);
+
+  if (state.mode === "firebase") {
+    await fb.setDoc(fb.doc(fb.db, "settings", "church"), data, { merge: true });
+  } else {
+    saveDemo();
+  }
+
   showToast("Settings saved.");
 });
 
 $("entryForm").addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  const type = $("entryModal").dataset.type;
+  const type = state.modal.type;
+  const id = state.modal.id;
   const data = Object.fromEntries(new FormData(event.currentTarget));
+
+  if (type === "rental") {
+    const equipment = state.equipment.find((item) => item.id === data.equipmentId);
+    data.equipmentName = equipment?.name || "Equipment";
+  }
 
   delete data.graphicFile;
 
   const graphicFileInput = $("graphicFileInput");
-  if (graphicFileInput?.dataset.compressed) data.graphicData = graphicFileInput.dataset.compressed;
+  if (graphicFileInput?.dataset.compressed) {
+    data.graphicData = graphicFileInput.dataset.compressed;
+  } else if (state.modal.existingGraphicData) {
+    data.graphicData = state.modal.existingGraphicData;
+  }
 
   Object.keys(data).forEach((key) => {
     if (data[key] === "") delete data[key];
   });
 
-  data.createdAt = new Date().toISOString();
+  data.updatedAt = new Date().toISOString();
 
   try {
-    await addRecord(type, data);
+    if (id) {
+      await saveRecord(type, id, data);
+      showToast("Entry updated.");
+    } else {
+      data.createdAt = new Date().toISOString();
+      await createRecord(type, data);
+      showToast("Entry saved.");
+    }
+
     closeModal();
-    showToast("Item saved.");
   } catch (error) {
     $("modalMessage").textContent = error.message;
   }

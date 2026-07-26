@@ -177,6 +177,7 @@
         </div>
 
         <div class="panel form-grid">
+          <input id="serviceRecordId" type="hidden">
           <label>Service date<input id="serviceDate" type="date"></label>
           <label>Service name<input id="serviceName" placeholder="Sunday Morning Worship"></label>
           <label>Media call time<input id="callTime" type="time"></label>
@@ -198,6 +199,14 @@
             <label><input id="choirReady" type="checkbox"> Choir list ready</label>
           </fieldset>
         </div>
+
+        <article class="panel top-gap">
+          <div class="panel-head">
+            <div><span class="eyebrow">SERVICE HISTORY</span><h3>Saved Service Listings</h3></div>
+            <button class="btn secondary" id="newServiceButton" type="button">+ Start New Service</button>
+          </div>
+          <div id="servicesList" class="cards-list"></div>
+        </article>
       </section>
 
       <section id="calendarView" class="view">
@@ -282,10 +291,29 @@
 
       <section id="equipmentView" class="view">
         <div class="section-head">
-          <div><span class="eyebrow">INVENTORY</span><h1>Equipment</h1><p>Cameras, audio, lighting, streaming, computers, and accessories.</p></div>
-          <button class="btn primary" type="button" data-open-modal="equipment">+ Add Equipment</button>
+          <div><span class="eyebrow">INVENTORY + RENTALS</span><h1>Equipment</h1><p>Manage equipment records, checkouts, rentals, returns, and due dates.</p></div>
+          <div class="button-row">
+            <button class="btn secondary" type="button" data-open-modal="rental">+ New Rental</button>
+            <button class="btn primary" type="button" data-open-modal="equipment">+ Add Equipment</button>
+          </div>
         </div>
-        <div id="equipmentList" class="cards-list"></div>
+
+        <div class="stat-grid">
+          <article class="panel"><span class="eyebrow">INVENTORY</span><strong id="equipmentCount">0</strong><small>equipment records</small></article>
+          <article class="panel"><span class="eyebrow">OUT NOW</span><strong id="activeRentalCount">0</strong><small>active rentals</small></article>
+          <article class="panel"><span class="eyebrow">OVERDUE</span><strong id="overdueRentalCount">0</strong><small>past due</small></article>
+        </div>
+
+        <div class="two-column equipment-columns">
+          <article class="panel">
+            <div class="panel-head"><div><span class="eyebrow">INVENTORY</span><h3>Equipment List</h3></div></div>
+            <div id="equipmentList" class="cards-list"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head"><div><span class="eyebrow">CHECKOUTS</span><h3>Equipment Rentals</h3></div></div>
+            <div id="rentalsList" class="cards-list"></div>
+          </article>
+        </div>
       </section>
 
       <section id="adminView" class="view">
@@ -310,8 +338,8 @@
           </article>
           <article class="panel">
             <h3>Version</h3>
-            <p><strong>Mount Vernon Control Center v0.4</strong></p>
-            <p class="muted">Fresh rebuild with simplified, reliable controls.</p>
+            <p><strong>Mount Vernon Control Center v0.5</strong></p>
+            <p class="muted">Editable records across the app, service history, and equipment rentals.</p>
           </article>
         </div>
       </section>

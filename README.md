@@ -1,55 +1,72 @@
-# Mount Vernon Control Center v0.4
+# Mount Vernon Control Center v0.5
 
-This is a fresh rebuild from scratch. It does not reuse the v0.3 JavaScript.
+## Major update
 
-## Main fixes
+Version 0.5 adds editing throughout the application.
 
-- Sidebar navigation works.
-- Quick-action buttons work.
-- Calendar month buttons work.
-- Add-item buttons work.
-- Cancel, X, Escape, and click-outside all close the modal.
-- Closing a modal never triggers required-field validation.
-- Only the title/name field is required in add-item forms.
-- Demo Mode works independently of Firebase.
-- Firebase Authentication and Firestore remain connected.
-- Announcements include a Screen Graphics gallery.
-- Graphic thumbnails can be uploaded and compressed for Firestore.
-- Choir includes songs and copyright-license records.
+Editable records:
 
-## Update the live GitHub Pages site
+- Service listings
+- Calendar/event entries
+- Announcements and screen graphics
+- Choir songs
+- Copyright-license records
+- Equipment
+- Equipment rentals
+- Admin/media-team profiles
 
-1. Download and unzip this package.
-2. In the existing GitHub repository, replace the old files with:
-   - `index.html`
-   - `css/`
-   - `js/`
-   - `assets/`
-   - `firestore.rules`
-   - `README.md`
-3. Commit the changes.
-4. Wait for GitHub Pages to finish deploying.
-5. Open the live site and press `Ctrl + Shift + R`.
+## Equipment rentals
 
-## First test order
+The Equipment section now includes:
 
-1. Sign in.
-2. Open every sidebar page.
-3. Open each Add form and cancel it with:
-   - X
-   - Cancel
-   - Escape
-   - Clicking outside the dialog
-4. Save one:
-   - Announcement
-   - Event
-   - Song
-   - Copyright license
-   - Equipment item
-   - Media profile
-5. Save the Sunday service plan.
-6. Confirm the records appear after refreshing.
+- Equipment selection
+- Borrower or organization
+- Checkout date
+- Due date
+- Contact information
+- Rental notes
+- Checked Out, Reserved, and Returned statuses
+- A one-click **Mark Returned** button
+- Active-rental and overdue counts
+- Overdue rental alerts on the dashboard
 
-## Graphic-storage note
+## Service listings
 
-Firestore documents have a size limit. This version compresses uploaded graphics to a thumbnail for visual reference. Keep full-resolution originals in Canva, Google Drive, or the church's normal archive.
+Services now save as individual Firestore records rather than one permanent `current` document.
+
+You can:
+
+- Start a new service
+- Save it
+- Reopen it for editing
+- Update it
+- Delete it
+- See services and events together on the calendar
+
+## Installation
+
+Replace the current GitHub repository files with the contents of this package:
+
+- `index.html`
+- `css/`
+- `js/`
+- `assets/`
+- `firestore.rules`
+- `README.md`
+
+Commit the replacement, wait for GitHub Pages to deploy, and press `Ctrl + Shift + R`.
+
+## Testing checklist
+
+1. Edit and save one record in every section.
+2. Refresh the page and confirm the edits remain.
+3. Create a new equipment rental.
+4. Edit the rental.
+5. Mark it returned.
+6. Create and edit two different service listings.
+7. Confirm both appear on the calendar.
+8. Test Cancel, X, Escape, and clicking outside each modal.
+
+## Existing v0.4 service data
+
+Version 0.4 used a single document at `services/current`. Version 0.5 uses individual documents in the `services` collection. The old `current` record may appear as one service listing if it contains service fields. It can be edited or deleted from the Services page.
