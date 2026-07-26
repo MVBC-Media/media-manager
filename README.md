@@ -1,14 +1,55 @@
-# Mount Vernon Control Center v0.3
+# Mount Vernon Control Center v0.4
 
-Changes:
-- Fixed Cancel, X, Escape, and backdrop close behavior.
-- Only the main title/name field is required; all supporting fields are optional.
-- Added an Announcements > Screen Graphics gallery.
-- Added compressed graphic thumbnail uploads and optional graphic URLs.
-- Added display start/end dates and graphic workflow status.
-- Added songs being sung, service placement, service date, choir/singer, key, and notes.
-- Added copyright provider, license type/number, status, renewal date, and coverage notes.
+This is a fresh rebuild from scratch. It does not reuse the v0.3 JavaScript.
 
-Upload the replacement files to the existing GitHub repository, commit, wait for Pages to deploy, then press Ctrl + Shift + R.
+## Main fixes
 
-Uploaded graphics are compressed thumbnails for production reference. Keep full-resolution originals in Canva, Google Drive, or the church archive.
+- Sidebar navigation works.
+- Quick-action buttons work.
+- Calendar month buttons work.
+- Add-item buttons work.
+- Cancel, X, Escape, and click-outside all close the modal.
+- Closing a modal never triggers required-field validation.
+- Only the title/name field is required in add-item forms.
+- Demo Mode works independently of Firebase.
+- Firebase Authentication and Firestore remain connected.
+- Announcements include a Screen Graphics gallery.
+- Graphic thumbnails can be uploaded and compressed for Firestore.
+- Choir includes songs and copyright-license records.
+
+## Update the live GitHub Pages site
+
+1. Download and unzip this package.
+2. In the existing GitHub repository, replace the old files with:
+   - `index.html`
+   - `css/`
+   - `js/`
+   - `assets/`
+   - `firestore.rules`
+   - `README.md`
+3. Commit the changes.
+4. Wait for GitHub Pages to finish deploying.
+5. Open the live site and press `Ctrl + Shift + R`.
+
+## First test order
+
+1. Sign in.
+2. Open every sidebar page.
+3. Open each Add form and cancel it with:
+   - X
+   - Cancel
+   - Escape
+   - Clicking outside the dialog
+4. Save one:
+   - Announcement
+   - Event
+   - Song
+   - Copyright license
+   - Equipment item
+   - Media profile
+5. Save the Sunday service plan.
+6. Confirm the records appear after refreshing.
+
+## Graphic-storage note
+
+Firestore documents have a size limit. This version compresses uploaded graphics to a thumbnail for visual reference. Keep full-resolution originals in Canva, Google Drive, or the church's normal archive.
